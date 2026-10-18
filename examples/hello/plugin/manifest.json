@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "omasharp-hello",
+  "name": "omasharp hello",
+  "version": "0.1.0",
+  "author": "omasharp",
+  "description": "C# backend over JSON lines. Open with: omarchy-shell shell toggle omasharp-hello",
+  "kinds": ["panel"],
+  "entryPoints": { "panel": "Panel.qml" }
+}

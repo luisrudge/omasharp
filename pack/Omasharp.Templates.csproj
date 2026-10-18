@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The dotnet new template package: template/ as is (an app's starter files, its bridge/ and
+       its .agents/skills/omasharp/), plus bridge/MANIFEST, the fingerprints `dotnet build -t:UpdateBridge` uses.
+       Build: dotnet pack pack/Omasharp.Templates.csproj -o artifacts
+       Try:   dotnet new install artifacts/Omasharp.Templates.<version>.nupkg -->
+  <PropertyGroup>
+    <PackageType>Template</PackageType>
+    <PackageId>Omasharp.Templates</PackageId>
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../template/bridge/VERSION').Trim())</Version>
+    <Title>Omarchy app templates (C# + QML)</Title>
+    <Authors>Luis Rudge</Authors>
+    <Description>dotnet new omarchy-app: C# + QML apps for Omarchy. Window apps compile to one native (AOT) binary on the system Qt; shell panels run C# safely outside omarchy-shell. Includes an agent skill (.agents/skills/omasharp).</Description>
+    <PackageTags>dotnet-new;templates;omarchy;hyprland;qml;qt;nativeaot</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/luisrudge/omasharp</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/luisrudge/omasharp</PackageProjectUrl>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IncludeContentInPack>true</IncludeContentInPack>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <ContentTargetFolders>content</ContentTargetFolders>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <NoWarn>$(NoWarn);NU5128;NU5110;NU5111</NoWarn>
+    <_Template>$(MSBuildThisFileDirectory)../template/</_Template>
+    <ValidateTemplatesPath>$(_Template)</ValidateTemplatesPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Validates template.json when packing. -->
+    <PackageReference Include="Microsoft.TemplateEngine.Authoring.Tasks" Version="10.0.402" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)../README.md" Pack="true" PackagePath="/" />
+    <Content Include="$(_Template)**" PackagePath="content/omarchy-app/"
+             Exclude="$(_Template)**/bin/**;$(_Template)**/obj/**;$(_Template)plugin/Backend.qml;$(_Template)**/*.upstream;$(_Template)**/*.pyc;$(_Template)bridge/host/Makefile;$(_Template)bridge/host/*.o;$(_Template)bridge/host/moc_*;$(_Template)bridge/host/*.moc" />
+    <!-- Generated below before the package is assembled. -->
+    <Content Include="$(MSBuildThisFileDirectory)obj/MANIFEST" PackagePath="content/omarchy-app/bridge/" />
+  </ItemGroup>
+
+  <!-- bridge/MANIFEST: sha256 of every bridge and skill file as shipped, so an app's update can
+       tell its own customizations apart from upstream changes. -->
+  <Target Name="BridgeManifest" BeforeTargets="Build;_GetPackageFiles">
+    <MakeDir Directories="$(MSBuildThisFileDirectory)obj" />
+    <Exec Command="sh &quot;$(MSBuildThisFileDirectory)manifest.sh&quot; &quot;$(MSBuildThisFileDirectory)obj/MANIFEST&quot;" />
+  </Target>
+</Project>

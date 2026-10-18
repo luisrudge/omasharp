@@ -1,0 +1,4 @@
+#!/bin/sh
+# pre-commit: scripts/lint.sh on the staged files (CI runs it on all of them).
+# Turn it on once per clone: git config core.hooksPath .githooks
+exec sh "$(git rev-parse --show-toplevel)/scripts/lint.sh" --staged

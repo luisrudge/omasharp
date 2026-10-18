@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json.schemastore.org/template",
+  "author": "Luis Rudge",
+  "classifications": ["Omarchy", "Desktop", "QML"],
+  "identity": "Omasharp.OmarchyApp",
+  "name": "Omarchy app (C# + QML)",
+  "description": "A C# + QML app for Omarchy: a window app (native AOT, starts like omacalc) or an omarchy-shell panel.",
+  "shortName": "omarchy-app",
+  "sourceName": "OmarchyApp",
+  "preferNameDirectory": true,
+  "tags": { "language": "C#", "type": "project" },
+  "symbols": {
+    "kind": {
+      "type": "parameter",
+      "datatype": "choice",
+      "choices": [
+        { "choice": "window", "description": "A normal app window (like omacalc): Main.qml + Backend.cs, one native binary." },
+        { "choice": "panel", "description": "An omarchy-shell panel: plugin/Panel.qml + Backend.cs running as a child process." }
+      ],
+      "defaultValue": "window",
+      "replaces": "omarchy-kind",
+      "description": "window or panel"
+    },
+    "appId": {
+      "type": "parameter",
+      "datatype": "string",
+      "defaultValue": "",
+      "description": "Wayland app_id / shell plugin id (default: the name in lowercase)"
+    },
+    "nameLower": {
+      "type": "generated",
+      "generator": "casing",
+      "parameters": { "source": "name", "toLower": true }
+    },
+    "appIdValue": {
+      "type": "generated",
+      "generator": "coalesce",
+      "parameters": { "sourceVariableName": "appId", "fallbackVariableName": "nameLower" },
+      "replaces": "omarchy-app-id"
+    }
+  },
+  "sources": [
+    {
+      "copyOnly": ["bridge/**", ".agents/**"],
+      "modifiers": [
+        { "condition": "(kind == \"window\")", "exclude": ["plugin/**"] },
+        { "condition": "(kind == \"panel\")", "exclude": ["Main.qml", "qtquickcontrols2.conf"] }
+      ]
+    }
+  ],
+  "postActions": [
+    {
+      "description": "Next steps.",
+      "manualInstructions": [ { "text": "Next: cd into the new folder and run `dotnet watch`. Coding agents get the omasharp skill (.agents/skills/omasharp)." } ],
+      "actionId": "AC1156F7-BB77-4DB8-B28F-24EEBCCA1E5C",
+      "continueOnError": true
+    }
+  ]
+}

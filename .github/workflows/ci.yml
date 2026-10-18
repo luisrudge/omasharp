@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # Arch, like Omarchy: current Qt 6 (the native drawing needs Qt 6.7+) and .NET 10.
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install toolchain
+        run: |
+          pacman -Syu --noconfirm --needed git dotnet-sdk qt6-base qt6-declarative gcc make clang lld python diffutils noto-fonts shellcheck
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Format and lint (C#, C++, shell)
+        run: sh scripts/lint.sh
+      - name: Test (analyzers, template, window + panel apps, examples)
+        run: sh scripts/test.sh
