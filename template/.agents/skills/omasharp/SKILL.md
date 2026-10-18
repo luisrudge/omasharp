@@ -63,4 +63,5 @@ Everything public on `Backend`, with the first letter lowercased:
 | [references/look.md](references/look.md) | looking like Omarchy: `theme.*` colors and fonts in windows, the shell's `Commons.Color`/`Style`/`qs.Ui` in panels |
 | [references/panels.md](references/panels.md) | panels: lifetime, `keepLoaded`, keyboard, opening one, what isn't supported |
 | [references/drawing.md](references/drawing.md) | charts, maps, treemaps: `Drawing` + `DrawView` instead of `Canvas` |
+| [references/sqlite.md](references/sqlite.md) | storing data: SQLite (the system's, nothing to ship), where the database goes, AOT-safe queries |
 | [references/build.md](references/build.md) | the human's dev loop, build/install/uninstall, the app_id, extending and updating `bridge/`, troubleshooting |

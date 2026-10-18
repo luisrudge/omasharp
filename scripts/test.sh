@@ -7,7 +7,8 @@
 #   (unit tests, dev and native AOT builds, each run headless on Qt's offscreen platform, checking
 #   the visible text); a new panel app: build, tests, AOT publish, its stdio protocol; 3. every
 #   omasharp rule fails a generated app's build; 4. bridge update on a fresh app is a no-op;
-#   5. the examples, through check.sh. Warnings fail every build (Omasharp.targets).
+#   5. SQLite the way the skill says (window app installed and run twice, panel); 6. the examples,
+#   through check.sh. Warnings fail every build (Omasharp.targets).
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d "${TMPDIR:-/tmp}/omasharp-test.XXXXXX")
@@ -17,6 +18,8 @@ nuget_cache=$(dotnet nuget locals global-packages --list | sed 's/^global-packag
 trap 'rm -rf "$work" "${nuget_cache%/}/omasharp.analyzers/$OmasharpAnalyzersVersion"; rmdir "${nuget_cache%/}/omasharp.analyzers" 2>/dev/null || true' EXIT
 export DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1
 export OMASHARP_TEMPLATE_HIVE="$work/hive"
+# Panel builds construct the backend (--qml-shim), and apps keep their data here: never in yours.
+export XDG_DATA_HOME="$work/data"
 step() { printf '\n== %s\n' "$*"; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
@@ -105,6 +108,113 @@ step "bridge + skill update on a fresh app changes nothing"
 out=$(cd "$work/Win" && sh bridge/update.sh .)
 echo "$out" | tail -1
 echo "$out" | grep -q " 0 updated, 0 added, 0 removed" || fail "update: unexpected changes"
+
+step "SQLite as the skill's references/sqlite.md says: window app (AOT, -t:Install, kept across runs), panel"
+ref=$root/template/.agents/skills/omasharp/references/sqlite.md
+# The reference's own code: its n-th unindented code block in <lang>.
+block() { awk -v lang="$1" -v n="$2" '$0 == "```" lang { i++; on = (i == n); next } /^```$/ { on = 0 } on' "$ref"; }
+block xml 1 > "$work/sqlite-refs.xml"
+for app in Notes NotesPanel; do
+  if [ $app = Notes ]; then new -n $app; else new -n $app --kind panel; fi
+  block csharp 1 > "$work/$app/Db.cs"; block csharp 2 > "$work/$app/Backend.cs"
+  awk -v refs="$work/sqlite-refs.xml" '/<Import Project=/ { while ((getline l < refs) > 0) print l } 1' "$work/$app/$app.csproj" > "$work/csproj" && mv "$work/csproj" "$work/$app/$app.csproj"
+done
+# Every start adds a note, so the second start shows both.
+cat > "$work/Notes/Main.qml" <<'EOF'
+import QtQuick
+import QtQuick.Controls
+
+ApplicationWindow {
+  visible: true
+  width: 400
+  height: 200
+  Label { text: "Notes: " + backend.notes.map(n => n.text).join(", ") }
+  Component.onCompleted: backend.add("run " + (backend.notes.length + 1))
+}
+EOF
+# Installed into a private HOME, where the app also keeps its database; dotnet keeps the real one.
+h=$work/home; mkdir -p "$h"; real_home=$HOME; cache=${XDG_CACHE_HOME:-$HOME/.cache}
+(cd "$work/Notes" && HOME=$h DOTNET_CLI_HOME=$real_home NUGET_PACKAGES=$nuget_cache XDG_CACHE_HOME=$cache dotnet publish -t:Install -v quiet -nologo) >"$work/notes.log" 2>&1 || { tail -30 "$work/notes.log"; fail "sqlite window app: publish -t:Install"; }
+files=$(cd "$h/.local/share/omasharp/notes" && echo *)
+[ "$files" = "libnotes.so notes notes.rcc" ] || fail "sqlite window app: installed $files, not just its own three files"
+shown() {
+  t=$work/notes.txt; rm -f "$t"
+  env -u XDG_DATA_HOME HOME="$h" QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software OMASHARP_TEXT_DUMP="$t" timeout 15 "$h/.local/bin/notes" >>"$work/notes-run.log" 2>&1 &
+  pid=$!
+  for _ in $(seq 100); do [ -s "$t" ] && break; sleep 0.1; done
+  sleep 0.5; kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true
+  cat "$t" 2>/dev/null || true
+}
+first=$(shown); second=$(shown); echo "$first"; echo "$second"
+[ "$first" = "Label: Notes: run 1" ] && [ "$second" = "Label: Notes: run 1, run 2" ] || { tail -20 "$work/notes-run.log"; fail "sqlite window app: notes not shown or not kept"; }
+[ -s "$h/.local/share/notes/app.db" ] || fail "sqlite window app: no database in ~/.local/share/notes/"
+(cd "$work/NotesPanel" && dotnet publish -v quiet -nologo) >"$work/notes-panel.log" 2>&1 || { tail -30 "$work/notes-panel.log"; fail "sqlite panel: publish"; }
+files=$(cd "$work/NotesPanel/plugin/bin" && echo *)
+[ "$files" = NotesPanel ] || fail "sqlite panel: plugin/bin has $files, not just the backend"
+d=$work/panel-data
+echo '{"op":"call","id":1,"name":"add","args":["milk"]}' | XDG_DATA_HOME=$d "$work/NotesPanel/plugin/bin/NotesPanel" >/dev/null
+reply=$(XDG_DATA_HOME=$d "$work/NotesPanel/plugin/bin/NotesPanel" </dev/null)
+echo "$reply"
+echo "$reply" | grep -q '"notes":\[{"id":1,"text":"milk"}\]' || fail "sqlite panel: note not kept across runs"
+[ -s "$d/notespanel/app.db" ] || fail "sqlite panel: no database in \$XDG_DATA_HOME/notespanel/"
+# Unit tests set up as the reference says: ../Db.cs and the packages in tests/, AppInfo declared there.
+t=$work/NotesPanel/tests
+sed -i 's#<Compile Include="../Backend.cs;#<Compile Include="../Backend.cs;../Db.cs;#' "$t"/*.csproj
+awk -v refs="$work/sqlite-refs.xml" '/^<\/Project>/ { while ((getline l < refs) > 0) print l } 1' "$t"/*.csproj > "$work/csproj" && mv "$work/csproj" "$t"/*.csproj
+echo 'namespace Omasharp { static class AppInfo { public const string Id = "tests"; } }' > "$t/AppInfo.cs"
+cat > "$t/Tests.cs" <<'EOF'
+global using AppBackend = Backend;
+
+var failures = 0;
+void Check(string name, bool ok)
+{
+    Console.WriteLine($"{(ok ? "ok  " : "FAIL")} {name}");
+    if (!ok) failures++;
+}
+static bool Works(Action a) { try { a(); return true; } catch (InvalidOperationException e) { Console.WriteLine($"     {e.Message}"); return false; } }
+var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
+
+using (var b = new Backend(path)) { b.Add("milk"); b.Add("eggs"); b.Remove(b.Notes[0].Id); }
+using (var b = new Backend(path)) Check("notes are kept", b.Notes is [{ Text: "eggs" }]);
+
+// Two copies of the app open: a write waits for the other copy's transaction instead of failing.
+using (var first = new Db(path))
+using (var second = new Db(path))
+{
+    first.Exec("BEGIN IMMEDIATE");
+    var commit = Task.Run(async () => { await Task.Delay(300); first.Exec("COMMIT"); });
+    Check("a write waits for another connection's transaction", Works(() => second.Run("INSERT INTO notes(text) VALUES (?)", "tea")));
+    commit.Wait();
+}
+
+// Two copies of the app start at once on a new database: the second waits, then skips the steps.
+var fresh = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
+using (var other = new Db(fresh))
+{
+    other.Exec("BEGIN IMMEDIATE");
+    var starting = Task.Run(() => { using var b = new Backend(fresh); });
+    await Task.Delay(300);
+    other.Exec("CREATE TABLE notes(id INTEGER PRIMARY KEY, text TEXT NOT NULL); PRAGMA user_version = 1; COMMIT");
+    Check("a second copy starting at the same time migrates once", Works(() => starting.GetAwaiter().GetResult()));
+}
+foreach (var f in new[] { fresh, fresh + "-wal", fresh + "-shm" }) File.Delete(f);
+
+// A migration that fails halfway leaves neither the change nor the new version behind.
+using (var db = new Db(path))
+{
+    Works(() => db.Transaction(() => db.Exec("ALTER TABLE notes ADD COLUMN done INTEGER NOT NULL DEFAULT 0; ALTER TABLE nope ADD COLUMN x; PRAGMA user_version = 2")));
+    var columns = db.Query("SELECT count(*) FROM pragma_table_info('notes') WHERE name = 'done'", r => SQLitePCL.raw.sqlite3_column_int(r, 0))[0];
+    var version = db.Query("PRAGMA user_version", r => SQLitePCL.raw.sqlite3_column_int(r, 0))[0];
+    Check("a failed transaction changes nothing", columns == 0 && version == 1);
+    Check("the connection works after it", Works(() => db.Transaction(() => db.Run("INSERT INTO notes(text) VALUES (?)", "jam"))));
+}
+
+foreach (var f in new[] { path, path + "-wal", path + "-shm" }) File.Delete(f);
+Console.WriteLine(failures == 0 ? "all passed" : $"{failures} failed");
+return failures == 0 ? 0 : 1;
+EOF
+(cd "$work/NotesPanel" && dotnet run --project tests) >"$work/notes-tests.log" 2>&1 || { tail -30 "$work/notes-tests.log"; fail "sqlite panel: unit tests"; }
+grep -E "^(ok|FAIL)" "$work/notes-tests.log"
 
 step "examples, through check.sh"
 (cd "$root/examples/omacalc" && $check --offscreen --release) >"$work/omacalc.log" 2>&1 || { tail -30 "$work/omacalc.log"; fail "omacalc"; }

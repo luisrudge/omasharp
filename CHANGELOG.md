@@ -2,6 +2,10 @@
 
 One section per `bridge/VERSION`. Apps update with `dotnet build -t:UpdateBridge`; entries marked **ABI** change the C ABI (`bridge/host/omasharp.h` ⟷ `bridge/cs/Native.cs`), so an app that customized either file must merge both before it runs again.
 
+## 0.1.2
+
+The skill covers SQLite (`references/sqlite.md`). Apps use the system's `libsqlite3`, which Qt depends on, through `SQLitePCLRaw.core` and `SQLitePCLRaw.provider.sqlite3`, with a small `Db.cs` helper. The database goes in `$XDG_DATA_HOME/<AppId>/`, and rows are mapped by hand, without reflection ORMs. It adds about 50 KB and ships no native file, so it works in window apps and panels, before and after `-t:Install`. `references/backend.md` now explains why packages with their own native `.so`, such as the SQLite that `Microsoft.Data.Sqlite` bundles, fail in installed window apps. `scripts/test.sh` runs the reference's code in an installed AOT window app and in a panel. The bridge itself is unchanged.
+
 ## 0.1.1
 
 The omasharp logo: the left half of Omarchy's logo as a C, and a sharp on the same grid. It's the icon of both packages and heads the README (`assets/`). Nothing changed for apps.
