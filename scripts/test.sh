@@ -18,6 +18,8 @@ nuget_cache=$(dotnet nuget locals global-packages --list | sed 's/^global-packag
 trap 'rm -rf "$work" "${nuget_cache%/}/omasharp.analyzers/$OmasharpAnalyzersVersion"; rmdir "${nuget_cache%/}/omasharp.analyzers" 2>/dev/null || true' EXIT
 export DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1
 export OMASHARP_TEMPLATE_HIVE="$work/hive"
+# Panel builds construct the backend (--qml-shim), and apps keep their data here: never in yours.
+export XDG_DATA_HOME="$work/data"
 step() { printf '\n== %s\n' "$*"; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
