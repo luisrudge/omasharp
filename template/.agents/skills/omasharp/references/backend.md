@@ -70,4 +70,5 @@ The same rules as any native AOT .NET app:
 - No `Reflection.Emit`, no `dynamic`, no loading assemblies at run time.
 - `System.Text.Json`: use a source-generated `JsonSerializerContext` (`[JsonSerializable(typeof(MyType))]`). Reflection-based serialization fails or gets trimmed.
 - NuGet packages must be trim/AOT-safe. IL2xxx/IL3xxx warnings say they aren't: they fail every build (and `check.sh --release` checks the native AOT build's own), because they're crashes waiting to happen.
+- Packages that ship their own native library (`runtimes/linux-x64/native/*.so`: SkiaSharp, the SQLite that `Microsoft.Data.Sqlite` bundles, ...) run from `bin/`, but a window app's `-t:Install` copies only `<appid>`, `lib<appid>.so` and `<appid>.rcc`, so the installed app can't load them. Prefer packages that use a system library. For SQLite, see [sqlite.md](sqlite.md).
 - Globalization is invariant (no culture-specific formatting, smaller and faster). For culture data, set `<InvariantGlobalization>false</InvariantGlobalization>` in the csproj.

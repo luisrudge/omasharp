@@ -7,7 +7,8 @@
 #   (unit tests, dev and native AOT builds, each run headless on Qt's offscreen platform, checking
 #   the visible text); a new panel app: build, tests, AOT publish, its stdio protocol; 3. every
 #   omasharp rule fails a generated app's build; 4. bridge update on a fresh app is a no-op;
-#   5. the examples, through check.sh. Warnings fail every build (Omasharp.targets).
+#   5. SQLite the way the skill says (window app installed and run twice, panel); 6. the examples,
+#   through check.sh. Warnings fail every build (Omasharp.targets).
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d "${TMPDIR:-/tmp}/omasharp-test.XXXXXX")
@@ -105,6 +106,55 @@ step "bridge + skill update on a fresh app changes nothing"
 out=$(cd "$work/Win" && sh bridge/update.sh .)
 echo "$out" | tail -1
 echo "$out" | grep -q " 0 updated, 0 added, 0 removed" || fail "update: unexpected changes"
+
+step "SQLite as the skill's references/sqlite.md says: window app (AOT, -t:Install, kept across runs), panel"
+ref=$root/template/.agents/skills/omasharp/references/sqlite.md
+# The reference's own code: its n-th unindented code block in <lang>.
+block() { awk -v lang="$1" -v n="$2" '$0 == "```" lang { i++; on = (i == n); next } /^```$/ { on = 0 } on' "$ref"; }
+block xml 1 > "$work/sqlite-refs.xml"
+for app in Notes NotesPanel; do
+  if [ $app = Notes ]; then new -n $app; else new -n $app --kind panel; fi
+  block csharp 1 > "$work/$app/Db.cs"; block csharp 2 > "$work/$app/Backend.cs"
+  awk -v refs="$work/sqlite-refs.xml" '/<Import Project=/ { while ((getline l < refs) > 0) print l } 1' "$work/$app/$app.csproj" > "$work/csproj" && mv "$work/csproj" "$work/$app/$app.csproj"
+done
+# Every start adds a note, so the second start shows both.
+cat > "$work/Notes/Main.qml" <<'EOF'
+import QtQuick
+import QtQuick.Controls
+
+ApplicationWindow {
+  visible: true
+  width: 400
+  height: 200
+  Label { text: "Notes: " + backend.notes.map(n => n.text).join(", ") }
+  Component.onCompleted: backend.add("run " + (backend.notes.length + 1))
+}
+EOF
+# Installed into a private HOME, where the app also keeps its database; dotnet keeps the real one.
+h=$work/home; mkdir -p "$h"; real_home=$HOME; cache=${XDG_CACHE_HOME:-$HOME/.cache}
+(cd "$work/Notes" && HOME=$h DOTNET_CLI_HOME=$real_home NUGET_PACKAGES=$nuget_cache XDG_CACHE_HOME=$cache dotnet publish -t:Install -v quiet -nologo) >"$work/notes.log" 2>&1 || { tail -30 "$work/notes.log"; fail "sqlite window app: publish -t:Install"; }
+files=$(cd "$h/.local/share/omasharp/notes" && echo *)
+[ "$files" = "libnotes.so notes notes.rcc" ] || fail "sqlite window app: installed $files, not just its own three files"
+shown() {
+  t=$work/notes.txt; rm -f "$t"
+  env -u XDG_DATA_HOME HOME="$h" QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software OMASHARP_TEXT_DUMP="$t" timeout 15 "$h/.local/bin/notes" >>"$work/notes-run.log" 2>&1 &
+  pid=$!
+  for _ in $(seq 100); do [ -s "$t" ] && break; sleep 0.1; done
+  sleep 0.5; kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true
+  cat "$t" 2>/dev/null || true
+}
+first=$(shown); second=$(shown); echo "$first"; echo "$second"
+[ "$first" = "Label: Notes: run 1" ] && [ "$second" = "Label: Notes: run 1, run 2" ] || { tail -20 "$work/notes-run.log"; fail "sqlite window app: notes not shown or not kept"; }
+[ -s "$h/.local/share/notes/app.db" ] || fail "sqlite window app: no database in ~/.local/share/notes/"
+(cd "$work/NotesPanel" && dotnet publish -v quiet -nologo) >"$work/notes-panel.log" 2>&1 || { tail -30 "$work/notes-panel.log"; fail "sqlite panel: publish"; }
+files=$(cd "$work/NotesPanel/plugin/bin" && echo *)
+[ "$files" = NotesPanel ] || fail "sqlite panel: plugin/bin has $files, not just the backend"
+d=$work/panel-data
+echo '{"op":"call","id":1,"name":"add","args":["milk"]}' | XDG_DATA_HOME=$d "$work/NotesPanel/plugin/bin/NotesPanel" >/dev/null
+reply=$(XDG_DATA_HOME=$d "$work/NotesPanel/plugin/bin/NotesPanel" </dev/null)
+echo "$reply"
+echo "$reply" | grep -q '"notes":\[{"id":1,"text":"milk"}\]' || fail "sqlite panel: note not kept across runs"
+[ -s "$d/notespanel/app.db" ] || fail "sqlite panel: no database in \$XDG_DATA_HOME/notespanel/"
 
 step "examples, through check.sh"
 (cd "$root/examples/omacalc" && $check --offscreen --release) >"$work/omacalc.log" 2>&1 || { tail -30 "$work/omacalc.log"; fail "omacalc"; }
