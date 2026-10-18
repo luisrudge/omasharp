@@ -185,13 +185,25 @@ using (var second = new Db(path))
     commit.Wait();
 }
 
+// Two copies of the app start at once on a new database: the second waits, then skips the steps.
+var fresh = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
+using (var other = new Db(fresh))
+{
+    other.Exec("BEGIN IMMEDIATE");
+    var starting = Task.Run(() => { using var b = new Backend(fresh); });
+    await Task.Delay(300);
+    other.Exec("CREATE TABLE notes(id INTEGER PRIMARY KEY, text TEXT NOT NULL); PRAGMA user_version = 1; COMMIT");
+    Check("a second copy starting at the same time migrates once", Works(() => starting.GetAwaiter().GetResult()));
+}
+foreach (var f in new[] { fresh, fresh + "-wal", fresh + "-shm" }) File.Delete(f);
+
 // A migration that fails halfway leaves neither the change nor the new version behind.
 using (var db = new Db(path))
 {
     Works(() => db.Transaction(() => db.Exec("ALTER TABLE notes ADD COLUMN done INTEGER NOT NULL DEFAULT 0; ALTER TABLE nope ADD COLUMN x; PRAGMA user_version = 2")));
     var columns = db.Query("SELECT count(*) FROM pragma_table_info('notes') WHERE name = 'done'", r => SQLitePCL.raw.sqlite3_column_int(r, 0))[0];
     var version = db.Query("PRAGMA user_version", r => SQLitePCL.raw.sqlite3_column_int(r, 0))[0];
-    Check("a failed transaction changes nothing", columns == 0 && version == 0);
+    Check("a failed transaction changes nothing", columns == 0 && version == 1);
     Check("the connection works after it", Works(() => db.Transaction(() => db.Run("INSERT INTO notes(text) VALUES (?)", "jam"))));
 }
 

@@ -126,9 +126,19 @@ public sealed class Backend : BackendBase, IDisposable
     internal Backend(string path)
     {
         _db = new Db(path);
-        _db.Exec("CREATE TABLE IF NOT EXISTS notes(id INTEGER PRIMARY KEY, text TEXT NOT NULL)");
+        Migrate();
         _notes = Load();
     }
+
+    // One step per schema change, each setting user_version. All in one transaction that reads the
+    // version itself: an app stopped halfway redoes nothing, and a second copy starting at the same
+    // time waits for this one, then skips the steps.
+    void Migrate() => _db.Transaction(() =>
+    {
+        var version = _db.Query("PRAGMA user_version", r => raw.sqlite3_column_int(r, 0))[0];
+        if (version < 1) _db.Exec("CREATE TABLE notes(id INTEGER PRIMARY KEY, text TEXT NOT NULL); PRAGMA user_version = 1");
+        // Later: if (version < 2) _db.Exec("ALTER TABLE notes ADD COLUMN done INTEGER NOT NULL DEFAULT 0; PRAGMA user_version = 2");
+    });
 
     public List<Note> Notes { get => _notes; private set => Set(ref _notes, value); }
 
@@ -157,11 +167,6 @@ QML gets `backend.notes` as a JS array of `{ id, text }` and calls `backend.add(
 - **Always use `?` parameters** for values. Never build SQL from strings.
 - **Map rows by hand, no reflection ORMs.** Read columns with `raw.sqlite3_column_int64`, `_int`, `_double`, `_text(r, i).utf8_to_string()` or `_blob(r, i).ToArray()` into your own records, as in `Load()`. EF Core and Dapper rely on reflection and runtime code generation, which native AOT doesn't have.
 - **Speed:** opening the database and running the first query take about 0.6 ms, so small queries on the UI thread are fine. Each statement outside a transaction is its own commit (a disk sync), so wrap bulk writes in `_db.Transaction(() => ...)`. Run long queries with `Task.Run` ([backend.md](backend.md)), and use a `Db` from one thread at a time.
-- **Schema changes:** keep a version in `PRAGMA user_version` and step through it. Each step goes in one transaction with its new version, so an app that stops halfway doesn't apply a step twice:
-  ```csharp
-  var version = _db.Query("PRAGMA user_version", r => raw.sqlite3_column_int(r, 0))[0];
-  if (version < 1) _db.Transaction(() => _db.Exec("CREATE TABLE notes(id INTEGER PRIMARY KEY, text TEXT NOT NULL); PRAGMA user_version = 1"));
-  if (version < 2) _db.Transaction(() => _db.Exec("ALTER TABLE notes ADD COLUMN done INTEGER NOT NULL DEFAULT 0; PRAGMA user_version = 2"));
-  ```
+- **Schema changes:** add a step to `Migrate()` with the next `user_version`. Never edit a step that has shipped: databases out there already ran it. Keep the version read inside the transaction.
 - **Closing:** the bridge calls `Backend.Dispose()` when the app exits (window closed, or the shell closed the panel).
 - **Unit tests:** `tests/*.csproj` compiles the app's files itself. Add `../Db.cs` to its `Compile` line and the same two `PackageReference`s. The tests also have to declare `AppInfo` themselves, as they do `AppBackend`: add `tests/AppInfo.cs` containing `namespace Omasharp { static class AppInfo { public const string Id = "tests"; } }`, and test with `new Backend(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db"))`.
