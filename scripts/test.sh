@@ -155,6 +155,42 @@ reply=$(XDG_DATA_HOME=$d "$work/NotesPanel/plugin/bin/NotesPanel" </dev/null)
 echo "$reply"
 echo "$reply" | grep -q '"notes":\[{"id":1,"text":"milk"}\]' || fail "sqlite panel: note not kept across runs"
 [ -s "$d/notespanel/app.db" ] || fail "sqlite panel: no database in \$XDG_DATA_HOME/notespanel/"
+# Unit tests set up as the reference says: ../Db.cs and the packages in tests/, AppInfo declared there.
+t=$work/NotesPanel/tests
+sed -i 's#<Compile Include="../Backend.cs;#<Compile Include="../Backend.cs;../Db.cs;#' "$t"/*.csproj
+awk -v refs="$work/sqlite-refs.xml" '/^<\/Project>/ { while ((getline l < refs) > 0) print l } 1' "$t"/*.csproj > "$work/csproj" && mv "$work/csproj" "$t"/*.csproj
+echo 'namespace Omasharp { static class AppInfo { public const string Id = "tests"; } }' > "$t/AppInfo.cs"
+cat > "$t/Tests.cs" <<'EOF'
+global using AppBackend = Backend;
+
+var failures = 0;
+void Check(string name, bool ok)
+{
+    Console.WriteLine($"{(ok ? "ok  " : "FAIL")} {name}");
+    if (!ok) failures++;
+}
+static bool Works(Action a) { try { a(); return true; } catch (InvalidOperationException e) { Console.WriteLine($"     {e.Message}"); return false; } }
+var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.db");
+
+using (var b = new Backend(path)) { b.Add("milk"); b.Add("eggs"); b.Remove(b.Notes[0].Id); }
+using (var b = new Backend(path)) Check("notes are kept", b.Notes is [{ Text: "eggs" }]);
+
+// Two copies of the app open: a write waits for the other copy's transaction instead of failing.
+using (var first = new Db(path))
+using (var second = new Db(path))
+{
+    first.Exec("BEGIN IMMEDIATE");
+    var commit = Task.Run(async () => { await Task.Delay(300); first.Exec("COMMIT"); });
+    Check("a write waits for another connection's transaction", Works(() => second.Run("INSERT INTO notes(text) VALUES (?)", "tea")));
+    commit.Wait();
+}
+
+foreach (var f in new[] { path, path + "-wal", path + "-shm" }) File.Delete(f);
+Console.WriteLine(failures == 0 ? "all passed" : $"{failures} failed");
+return failures == 0 ? 0 : 1;
+EOF
+(cd "$work/NotesPanel" && dotnet run --project tests) >"$work/notes-tests.log" 2>&1 || { tail -30 "$work/notes-tests.log"; fail "sqlite panel: unit tests"; }
+grep -E "^(ok|FAIL)" "$work/notes-tests.log"
 
 step "examples, through check.sh"
 (cd "$root/examples/omacalc" && $check --offscreen --release) >"$work/omacalc.log" 2>&1 || { tail -30 "$work/omacalc.log"; fail "omacalc"; }

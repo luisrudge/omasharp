@@ -31,6 +31,8 @@ sealed class Db : IDisposable
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         Check(raw.sqlite3_open(path, out _db));
+        // A second copy of the app may be writing: wait up to 3 s for it instead of failing.
+        Check(raw.sqlite3_busy_timeout(_db, 3000));
         // Fewer disk syncs per write; a crash of the app can't corrupt the file.
         Exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL");
     }
