@@ -1,0 +1,12 @@
+# C++ (template/bridge/host/). Close to how the host was written: 4-space indent, no column limit,
+# short bodies stay on one line. Check: clang-format --dry-run -Werror FILE; fix: clang-format -i FILE.
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 0
+SortIncludes: Never
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLoopsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Always
+AllowShortLambdasOnASingleLine: All
+AccessModifierOffset: -4
