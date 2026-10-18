@@ -20,6 +20,7 @@ Bug reports, fixes and new bridge features are welcome, whether you write them o
 | `scripts/test.sh` | the full check: what CI runs |
 | `tools/` | benchmarking helpers |
 | `docs/` | architecture |
+| `assets/` | the logo and icon (also the packages' icon) |
 
 ## Try your changes
 

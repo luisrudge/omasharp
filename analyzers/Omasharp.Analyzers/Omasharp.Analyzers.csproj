@@ -19,6 +19,7 @@
     <PackageTags>omarchy;qml;qt;analyzers;roslyn</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/luisrudge/omasharp</RepositoryUrl>
     <PackageProjectUrl>https://github.com/luisrudge/omasharp</PackageProjectUrl>
     <DevelopmentDependency>true</DevelopmentDependency>
@@ -35,6 +36,7 @@
     <Compile Include="../../template/bridge/cs/QmlNames.cs" Link="QmlNames.cs" />
     <None Include="$(OutputPath)$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <None Include="../README.md" Pack="true" PackagePath="/" />
+    <None Include="../../assets/icon.png" Pack="true" PackagePath="/" />
     <AdditionalFiles Include="AnalyzerReleases.Shipped.md;AnalyzerReleases.Unshipped.md" />
   </ItemGroup>
 </Project>

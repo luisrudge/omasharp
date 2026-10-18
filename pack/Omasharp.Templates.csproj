@@ -13,6 +13,7 @@
     <PackageTags>dotnet-new;templates;omarchy;hyprland;qml;qt;nativeaot</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <RepositoryUrl>https://github.com/luisrudge/omasharp</RepositoryUrl>
     <PackageProjectUrl>https://github.com/luisrudge/omasharp</PackageProjectUrl>
     <TargetFramework>netstandard2.0</TargetFramework>
@@ -33,6 +34,7 @@
 
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)../README.md" Pack="true" PackagePath="/" />
+    <None Include="$(MSBuildThisFileDirectory)../assets/icon.png" Pack="true" PackagePath="/" />
     <Content Include="$(_Template)**" PackagePath="content/omarchy-app/"
              Exclude="$(_Template)**/bin/**;$(_Template)**/obj/**;$(_Template)plugin/Backend.qml;$(_Template)**/*.upstream;$(_Template)**/*.pyc;$(_Template)bridge/host/Makefile;$(_Template)bridge/host/*.o;$(_Template)bridge/host/moc_*;$(_Template)bridge/host/*.moc" />
     <!-- Generated below before the package is assembled. -->

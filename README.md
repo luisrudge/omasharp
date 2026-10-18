@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/luisrudge/omasharp/main/assets/icon.png" width="96" alt="omasharp">
+
 # omasharp
 
 Build Omarchy apps in C# and QML that start as fast as Omarchy's own C++ apps.
@@ -77,6 +79,7 @@ One `Backend.cs` works as a window app (left) and as a panel (right):
 | `scripts/` | `test.sh` runs everything CI checks. `lint.sh` checks formatting. |
 | `tools/` | Benchmark helpers for contributors. |
 | `docs/` | [How omasharp works](https://github.com/luisrudge/omasharp/blob/main/docs/architecture.md). |
+| `assets/` | The logo and icon. |
 
 ## Contributing
 
