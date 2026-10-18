@@ -185,6 +185,16 @@ using (var second = new Db(path))
     commit.Wait();
 }
 
+// A migration that fails halfway leaves neither the change nor the new version behind.
+using (var db = new Db(path))
+{
+    Works(() => db.Transaction(() => db.Exec("ALTER TABLE notes ADD COLUMN done INTEGER NOT NULL DEFAULT 0; ALTER TABLE nope ADD COLUMN x; PRAGMA user_version = 2")));
+    var columns = db.Query("SELECT count(*) FROM pragma_table_info('notes') WHERE name = 'done'", r => SQLitePCL.raw.sqlite3_column_int(r, 0))[0];
+    var version = db.Query("PRAGMA user_version", r => SQLitePCL.raw.sqlite3_column_int(r, 0))[0];
+    Check("a failed transaction changes nothing", columns == 0 && version == 0);
+    Check("the connection works after it", Works(() => db.Transaction(() => db.Run("INSERT INTO notes(text) VALUES (?)", "jam"))));
+}
+
 foreach (var f in new[] { path, path + "-wal", path + "-shm" }) File.Delete(f);
 Console.WriteLine(failures == 0 ? "all passed" : $"{failures} failed");
 return failures == 0 ? 0 : 1;
