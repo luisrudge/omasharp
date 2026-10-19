@@ -19,4 +19,5 @@ DrawView { anchors.fill: parent; clip: true; source: "chart"; view: backend.view
 - **Zoom and pan:** bind `view`; the host moves and scales the last drawing immediately (no repaint), then send a fresh `Drawing` for the new view once it settles (e.g. 150 ms after the last change) to get sharp labels.
 - Keep small, frequently-changing things (hover outline, selection ring, tooltips) as normal QML items on top: they don't redraw the picture.
 - Theme colors for a drawing: `Theme.Color("accent")`; redraw on `Theme.Changed` ([look.md](look.md)).
+- Under Qt's software renderer (`check.sh --offscreen`, `QT_QUICK_BACKEND=software`, a machine without a GPU) `DrawView` paints its shapes into an image: the same picture, drawn more slowly. Offscreen checks and `grabToImage` snapshots see the shapes, not only the text.
 - `Bridge.Show` and `DrawView` are for window apps; in panels, use QML items.

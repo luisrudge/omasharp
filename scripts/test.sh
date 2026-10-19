@@ -67,6 +67,33 @@ grep -qF "Label: env: $value" "$work/Win/obj/shot.txt" || { grep "env:" "$work/w
 grep -F "env:" "$work/Win/obj/shot.txt"
 cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
 
+step "DrawView draws its shapes under Qt's software renderer (--offscreen)"
+sed -i '/^public class Backend : BackendBase$/{n;a\
+    public string Snapshot => Environment.GetEnvironmentVariable("SNAPSHOT") ?? "";\
+    public void Draw() { var d = new Drawing(1, 0, 0); d.Rect(0, 0, 200, 100, Color.Parse("#ff0000")); Bridge.Show("box", d); }
+}' "$work/Win/Backend.cs"
+cat > "$work/Win/Main.qml" <<'EOF'
+import QtQuick
+import Omasharp
+
+Window {
+  visible: true
+  width: 400
+  height: 300
+  Text { text: "drawn" }
+  DrawView { id: box; width: 200; height: 100; source: "box"; view: [1, 0, 0] }
+  Component.onCompleted: backend.draw()
+  Timer { interval: 300; running: true; onTriggered: box.grabToImage(r => r.saveToFile(backend.snapshot)) }
+}
+EOF
+(cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "SNAPSHOT=$work/box.ppm") >"$work/win-draw.log" 2>&1 || { tail -20 "$work/win-draw.log"; fail "DrawView app"; }
+# The share of red pixels in the grabbed DrawView (binary PPM: four header fields, then RGB bytes).
+red=$(python3 -I -c 'import sys; d = open(sys.argv[1], "rb").read(); f = d.split(maxsplit=4); n = int(f[1]) * int(f[2]); px = d[-n * 3:]
+print(sum(px[i:i + 3] == b"\xff\x00\x00" for i in range(0, n * 3, 3)) * 100 // n)' "$work/box.ppm" 2>/dev/null || echo 0)
+echo "red: $red% of the DrawView"
+[ "$red" -ge 90 ] || fail "DrawView: the software renderer drew no shapes"
+cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
+
 step "check.sh fails when the app's QML throws while running"
 cp "$work/Win/Main.qml" "$work/Main.qml.good"
 sed -i '0,/id: win/s//id: win\n  Component.onCompleted: notDefinedAnywhere.call()/' "$work/Win/Main.qml"
