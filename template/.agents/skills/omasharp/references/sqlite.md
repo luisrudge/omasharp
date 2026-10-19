@@ -164,6 +164,7 @@ public sealed class Backend : BackendBase, IDisposable
 QML gets `backend.notes` as a JS array of `{ id, text }` and calls `backend.add(text)` and `backend.remove(id)`.
 
 - **Where the database goes:** `$XDG_DATA_HOME/<AppId>/`, as above. `LocalApplicationData` is `$XDG_DATA_HOME` (or `~/.local/share`) on Linux, and `AppInfo.Id` is the csproj's `AppId`. Keep `SpecialFolderOption.DoNotVerify`: without it, `GetFolderPath` returns `""` when the folder doesn't exist yet, and the database lands in whatever the current directory is.
+- **Checks** (`check.sh`) start every run with an empty `$XDG_DATA_HOME`, so the app makes a new database, and `--keys` never reach the user's notes. To check with rows already there, seed it with `--seed DIR` ([checking.md](checking.md)).
 - **Panels:** the build runs `Backend`'s constructor once, to write `plugin/Backend.qml`, so it opens (and creates) the database too. Keep the constructor to opening, migrating and reading.
 - **Always use `?` parameters** for values. Never build SQL from strings.
 - **Map rows by hand, no reflection ORMs.** Read columns with `raw.sqlite3_column_int64`, `_int`, `_double`, `_text(r, i).utf8_to_string()` or `_blob(r, i).ToArray()` into your own records, as in `Load()`. EF Core and Dapper rely on reflection and runtime code generation, which native AOT doesn't have.

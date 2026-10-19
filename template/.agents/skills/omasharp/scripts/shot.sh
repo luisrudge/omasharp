@@ -9,7 +9,7 @@
 #   OMASHARP_SHOT_KEYS_FILE  text plus {Tab} {Enter} {Up} {Ctrl+a} {Alt+1} ... (see keys.py)
 #   OMASHARP_SHOT_ARGS_FILE  extra app arguments, split on whitespace
 #   OMASHARP_SHOT_ENV_FILE   environment variables for the app, one KEY=VALUE per line
-# Also: OMASHARP_SHOT_SIZE (WxH logical pixels), OMASHARP_SHOT_WAIT (seconds before keys),
+# Also: OMASHARP_SHOT_SIZE (WxH logical pixels at 1.5x; odd numbers are rounded down), OMASHARP_SHOT_WAIT (seconds before keys),
 # OMASHARP_SHOT_FLOAT=1 (float the window at its own size, centred, instead of tiling it).
 # (The omasharp repo's tools/session.sh has a copy of the session lookup; keep them in step.)
 set -u
@@ -18,7 +18,9 @@ here=$(cd "$(dirname "$0")" && pwd)
 sq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; } # shell-quote one word
 q() { printf ' '; sq "$1"; }                                          # ... after a space
 size=${OMASHARP_SHOT_SIZE:-}; [ -n "$size" ] || size=1280x960
-printf '%s' "$size" | grep -Eqx '[0-9]+x[0-9]+' || { echo "shot: bad size '$size' (use WxH, like 1280x960)" >&2; exit 1; }
+# No leading zeros (sh reads them as octal), and at least 2x2 (1.5x rounds odd sizes down).
+{ printf '%s' "$size" | grep -Eqx '[1-9][0-9]*x[1-9][0-9]*' && [ "${size%x*}" -ge 2 ] && [ "${size#*x}" -ge 2 ]; } ||
+  { echo "shot: bad size '$size' (use WxH, at least 2x2, like 1280x960)" >&2; exit 1; }
 keys=; [ -n "${OMASHARP_SHOT_KEYS_FILE:-}" ] && [ -s "$OMASHARP_SHOT_KEYS_FILE" ] && keys=$(cat "$OMASHARP_SHOT_KEYS_FILE")
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 # The user's session: the oldest Hyprland instance that answers (ignore stale env vars).
@@ -67,9 +69,13 @@ sleep 0.5
 # 2. Its own headless output to draw the app on.
 hyprctl output create headless shot >/dev/null
 # The screen the app sees: OMASHARP_SHOT_SIZE logical pixels (default 1280x960) at 1.5x scale.
-w=${size%x*}; h=${size#*x}
+# 1.5x needs even logical sizes (an odd one has no whole-pixel mode, and Hyprland drops to 1x).
+w=${size%x*}; h=${size#*x}; w=$((w / 2 * 2)); h=$((h / 2 * 2))
+[ "${w}x$h" = "$size" ] || echo "shot: using ${w}x$h, not $size: 1.5x scale needs even sizes"
 hyprctl eval "hl.monitor({ output = \"shot\", mode = \"$((w * 3 / 2))x$((h * 3 / 2))\", position = \"auto\", scale = 1.5 })" >/dev/null
 sleep 0.3
+got=$(hyprctl monitors -j | jq -r '.[] | select(.name=="shot") | "\(.width)x\(.height)@\(.scale)"')
+[ "$got" = "$((w * 3 / 2))x$((h * 3 / 2))@1.5" ] || { echo "shot: the screen is $got, not $((w * 3 / 2))x$((h * 3 / 2)) at 1.5x" >&2; exit 1; }
 hyprctl dispatch 'hl.dsp.focus({ monitor = "shot" })' >/dev/null
 nws=$(hyprctl monitors -j | jq -r '.[] | select(.name=="shot") | .activeWorkspace.id')
 [ -n "${OMASHARP_SHOT_FLOAT:-}" ] && hyprctl eval 'hl.window_rule({ match = { class = ".*" }, float = true, center = true })' >/dev/null
