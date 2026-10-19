@@ -59,6 +59,18 @@ step "window app: check.sh (tests, dev build, offscreen run), then --release"
 grep -A3 "visible text" "$work/win.log"
 [ "$(grep -c "Nothing counted yet" "$work/win.log")" -eq 2 ] || fail "window app: expected text not shown in both builds"
 
+step "check.sh --size with odd numbers keeps the 1.5x scale (private compositor; needs Hyprland)"
+if hyprctl instances -j 2>/dev/null | jq -e 'length > 0' >/dev/null 2>&1; then
+  (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --no-tests --size 625x751) >"$work/win-size.log" 2>&1 || { tail -20 "$work/win-size.log"; fail "check.sh --size 625x751"; }
+  grep -q "using 624x750, not 625x751" "$work/win-size.log" || { cat "$work/win-size.log"; fail "check.sh --size: no note about the rounded size"; }
+  # 624x750 logical pixels at 1.5x: a 936x1125 screenshot (the PNG's IHDR).
+  px=$(python3 -I -c 'import struct, sys; print("%dx%d" % struct.unpack(">II", open(sys.argv[1], "rb").read(24)[16:24]))' "$work/Win/obj/shot.png")
+  echo "screenshot: $px"
+  [ "$px" = 936x1125 ] || fail "check.sh --size 625x751: the screenshot is $px, not 936x1125 (1.5x)"
+else
+  echo "skipped: no Hyprland session"
+fi
+
 step "check.sh --env reaches the app as it is (--offscreen)"
 cp "$work/Win/Backend.cs" "$work/Backend.cs.good"; cp "$work/Win/Main.qml" "$work/Main.qml.good"
 sed -i '/^public class Backend : BackendBase$/{n;a\

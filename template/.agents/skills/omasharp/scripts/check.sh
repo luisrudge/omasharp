@@ -7,7 +7,8 @@
 #   --keys KEYS      type into the app first: text plus {Tab} {Enter} {Ctrl+a} {Wait:500} ... (keys.py)
 #   --args ARGS      command-line arguments for the app (split on whitespace; Bridge.Args)
 #   --env KEY=VALUE  an environment variable for the app (repeatable); no shell sees the value
-#   --size WxH       the screen size in logical pixels (default 1280x960)
+#   --size WxH       the screen size in logical pixels at 1.5x scale (default 1280x960); odd numbers
+#                    are rounded down to even ones, which 1.5x needs
 #   --float          float the window at its own size, centred, instead of tiling it to fill the
 #                    screen (for apps that float on Omarchy, like omacalc)
 #   --no-tests       skip the unit tests
@@ -35,7 +36,7 @@ while [ $# -gt 0 ]; do
     --float) float=1 ;;
     --no-tests) tests= ;;
     --offscreen) offscreen=1 ;;
-    -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "check: unknown option $1 (see --help)" >&2; exit 2 ;;
     *) dir=$1 ;;
   esac

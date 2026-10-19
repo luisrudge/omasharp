@@ -2,6 +2,12 @@
 
 One section per `bridge/VERSION`. Apps update with `dotnet build -t:UpdateBridge`; entries marked **ABI** change the C ABI (`bridge/host/omasharp.h` ⟷ `bridge/cs/Native.cs`), so an app that customized either file must merge both before it runs again.
 
+## 0.1.6
+
+Fixes from agents building system-monitor apps:
+
+- `check.sh --size` keeps the 1.5x scale for every size. An odd width or height has no whole-pixel mode at 1.5x, so Hyprland ran the app at 1x and the screenshot and layout were wrong. The check now rounds odd numbers down (`--size 625x751` runs at 624x750) and says so, and fails if the private screen doesn't end up at 1.5x.
+
 ## 0.1.5
 
 `dotnet watch` is no longer supported: no C# hot reload and no QML live reload. Apps are built by agents, which edit and run `check.sh`; reloading was code their loop never used, and it made dev mode differ from release. Dev mode itself stays (a Debug build on JIT, QML from the project folder, no `.rcc`): `check.sh` uses it by default, and `dotnet run` opens the app with it, without reloading.
