@@ -44,7 +44,7 @@
       "copyOnly": ["bridge/**", ".agents/**"],
       "modifiers": [
         { "condition": "(kind == \"window\")", "exclude": ["plugin/**"] },
-        { "condition": "(kind == \"panel\")", "exclude": ["Main.qml", "qtquickcontrols2.conf"] }
+        { "condition": "(kind == \"panel\")", "exclude": ["Main.qml", "qtquickcontrols2.conf", ".github/**"] }
       ]
     }
   ],

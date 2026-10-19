@@ -8,7 +8,8 @@
 #   the visible text; --env, DrawView's shapes, the theme name); a new panel app: build, tests, AOT
 #   publish, its stdio protocol; 3. every omasharp rule fails a generated app's build; 4. bridge
 #   update on a fresh app is a no-op; 5. SQLite the way the skill says (window app installed and run
-#   twice, panel), then -t:Install with the app's own app.desktop and -t:Uninstall; 6. the examples,
+#   twice, panel), then -t:Install with the app's own app.desktop and -t:Uninstall; a release
+#   (-t:Package) installed, updated and removed by its install.sh as users run it; 6. the examples,
 #   through check.sh. Warnings fail every build (Omasharp.targets).
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -40,11 +41,14 @@ check="sh $root/template/.agents/skills/omasharp/scripts/check.sh"
 
 step "window app: the files agents need"
 new -n Win
-for f in AGENTS.md CLAUDE.md .editorconfig .agents/skills/omasharp/SKILL.md .agents/skills/omasharp/scripts/check.sh bridge/MANIFEST; do
+for f in AGENTS.md CLAUDE.md .editorconfig .agents/skills/omasharp/SKILL.md .agents/skills/omasharp/scripts/check.sh bridge/MANIFEST .github/workflows/release.yml; do
   [ -f "$work/Win/$f" ] || fail "window app: no $f"
 done
 grep -q "  .agents/skills/omasharp/SKILL.md$" "$work/Win/bridge/MANIFEST" || fail "MANIFEST doesn't cover the skill"
 grep -qx "@AGENTS.md" "$work/Win/CLAUDE.md" || fail "CLAUDE.md doesn't import AGENTS.md"
+cmp -s "$root/template/.github/workflows/release.yml" "$work/Win/.github/workflows/release.yml" || fail "the release workflow changed on the way into the app"
+# The release workflow's tag check reads the version this way.
+[ "$(cd "$work/Win" && dotnet msbuild -getProperty:Version)" = 0.1.0 ] || fail "window app: no <Version> 0.1.0"
 
 step "--app-id sets the app id"
 new -n Named --app-id named-app
@@ -151,6 +155,7 @@ cp "$work/Main.qml.good" "$work/Win/Main.qml"
 
 step "panel app: build, tests, AOT publish, stdio protocol"
 new -n Pan --kind panel
+[ ! -e "$work/Pan/.github" ] || fail "panel app: has the window apps' release workflow"
 # Names that are Visual Basic keywords build: the app is C# only (CA1716 is off in .editorconfig).
 printf '%s\n' 'public record Step(int Index);' 'public interface ICursor { void Next(); }' > "$work/Pan/Keywords.cs"
 (cd "$work/Pan" && dotnet build -v quiet -nologo && dotnet run --project tests && dotnet publish -v quiet -nologo) >"$work/pan.log" 2>&1 || { tail -30 "$work/pan.log"; fail "panel app"; }
@@ -351,6 +356,69 @@ fi
 as_home dotnet build -t:Uninstall >>"$work/desktop.log" 2>&1 || { tail -30 "$work/desktop.log"; fail "app.desktop: -t:Uninstall"; }
 left=$(cd "$h/.local" && find bin share/applications share/icons share/omasharp ! -type d 2>/dev/null || true)
 [ -z "$left" ] || fail "app.desktop: Uninstall left $left"
+
+step "A release: -t:Package, then its install.sh as users run it (piped, the same private HOME)"
+# Restored after the invalid-entry check; the name tests the quoting install.sh gets.
+sed -i 's/^Type=Nonsense$/Type=Application/' "$work/Notes/app.desktop"
+rel=$work/Notes/artifacts
+as_home dotnet publish -t:Package -p:AppRepository=example/notes "-p:AppName=Jo's & Al's Notes" >"$work/package.log" 2>&1 || { tail -30 "$work/package.log"; fail "package: -t:Package"; }
+made=$(cd "$rel" && printf "%s\n" * | LC_ALL=C sort | tr '\n' ' ')
+[ "$made" = "SHA256SUMS install.sh notes-linux-x64.tar.gz " ] || fail "package: artifacts/ has $made"
+(cd "$rel" && sha256sum -c --quiet SHA256SUMS) || fail "package: SHA256SUMS doesn't match"
+listed=$(tar -tzf "$rel/notes-linux-x64.tar.gz" | grep -v '/$' | LC_ALL=C sort | tr '\n' ' ')
+[ "$listed" = "notes/app/libnotes.so notes/app/notes notes/app/notes.rcc notes/install.sh notes/notes.desktop notes/notes.svg notes/version " ] || fail "package: the tarball has $listed"
+grep -qxF "id='notes' name='Jo'\\''s & Al'\\''s Notes' repo='example/notes'" "$rel/install.sh" || fail "package: install.sh doesn't have the app's values"
+# Users' way: curl … | sh. The release's files come from file:// here instead of github.com.
+user_install() { curl -fsSL "file://$rel/install.sh" | env HOME="$h" OMASHARP_RELEASE_URL="file://${2:-$rel}" sh ${1:+-s "$1"}; }
+user_install >"$work/user-install.log" 2>&1 || { cat "$work/user-install.log"; fail "release: install.sh"; }
+cat "$work/user-install.log"
+grep -q "^Installed Jo's & Al's Notes 0.1.0" "$work/user-install.log" || fail "release: no install message"
+[ "$(cd "$h/.local/share/omasharp/notes" && echo *)" = "libnotes.so notes notes.rcc" ] || fail "release: installed $(cd "$h/.local/share/omasharp/notes" && echo *)"
+[ "$(readlink "$h/.local/bin/notes")" = "$exe" ] || fail "release: ~/.local/bin/notes isn't the installed binary"
+[ -f "$h/.local/share/icons/hicolor/scalable/apps/notes.svg" ] || fail "release: no icon"
+for line in "Exec=\"$exe\" %f" "Exec=\"$exe\" --new" "StartupWMClass=notes" "Icon=notes"; do
+  grep -qxF -- "$line" "$entry" || fail "release: no line '$line' in the installed entry"
+done
+case $(shown) in "Label: Notes: run 1, run 2, run 3"*) ;; *) tail -20 "$work/notes-run.log"; fail "release: the installed app didn't run" ;; esac
+# Piped from inside an unpacked (older) release, it still downloads the latest.
+mkdir -p "$work/oldrel"; tar -xzf "$rel/notes-linux-x64.tar.gz" -C "$work/oldrel"; echo 0.0.9 > "$work/oldrel/notes/version"
+(cd "$work/oldrel/notes" && user_install) >"$work/inside.log" 2>&1 || { cat "$work/inside.log"; fail "release: piped install inside an unpacked release"; }
+grep -q "^Installed Jo's & Al's Notes 0.1.0" "$work/inside.log" || { cat "$work/inside.log"; fail "release: piped install took the unpacked release in the current folder"; }
+# A download that doesn't match SHA256SUMS installs nothing.
+cp -r "$rel" "$work/bad"; printf x >> "$work/bad/notes-linux-x64.tar.gz"; cp "$exe" "$work/exe.before"
+user_install "" "$work/bad" >"$work/bad.log" 2>&1 && fail "release: a download that doesn't match SHA256SUMS was installed"
+grep -q "doesn't match the release's SHA256SUMS; nothing was installed" "$work/bad.log" || { cat "$work/bad.log"; fail "release: no message for a bad download"; }
+cmp -s "$exe" "$work/exe.before" || fail "release: a bad download changed the installed app"
+# Libraries older than the build's (a fake ldd says so): nothing is installed.
+mkdir -p "$work/oldlibs"; printf '#!/bin/sh\necho "\t%s: version Qt_6.99 not found (required by %s)"\n' libQt6Core.so.6 notes > "$work/oldlibs/ldd"; chmod +x "$work/oldlibs/ldd"
+(cd "$work" && tar -xzf "$rel/notes-linux-x64.tar.gz")
+env HOME="$work/home2" PATH="$work/oldlibs:$PATH" sh "$work/notes/install.sh" >"$work/old.log" 2>&1 && fail "release: installed on libraries that are too old"
+grep -q "Update the system" "$work/old.log" || { cat "$work/old.log"; fail "release: no message for old libraries"; }
+[ ! -e "$work/home2" ] || fail "release: too-old libraries still wrote to HOME"
+# Again (an update), then uninstall: nothing left. The update leaves apps called notes.new and notes.old alone.
+for other in notes.new notes.old; do mkdir -p "$h/.local/share/omasharp/$other" && touch "$h/.local/share/omasharp/$other/libnotes.so"; done
+user_install >>"$work/user-install.log" 2>&1 || fail "release: install.sh over an installed copy"
+for other in notes.new notes.old; do
+  [ -f "$h/.local/share/omasharp/$other/libnotes.so" ] || fail "release: installing notes removed the app $other"
+  rm -r "${h:?}/.local/share/omasharp/$other"
+done
+# While another install of the app holds its lock, the next one waits for it.
+( flock 9; touch "$work/locked"; while [ ! -e "$work/unlock" ]; do sleep 0.1; done ) 9>"$h/.local/share/omasharp/.notes.lock" &
+holder=$!
+while [ ! -e "$work/locked" ]; do sleep 0.05; done
+user_install >"$work/wait.log" 2>&1 &
+waiter=$!
+for _ in $(seq 100); do grep -q "Waiting for another install" "$work/wait.log" && break; sleep 0.1; done
+if ! grep -q "Waiting for another install" "$work/wait.log" || ! kill -0 "$waiter" 2>/dev/null; then
+  touch "$work/unlock"; cat "$work/wait.log"; fail "release: an install didn't wait for the one holding the lock"
+fi
+touch "$work/unlock"; wait "$holder"; wait "$waiter" || { cat "$work/wait.log"; fail "release: the install that waited failed"; }
+user_install uninstall >>"$work/user-install.log" 2>&1 || fail "release: install.sh uninstall"
+left=$(cd "$h/.local" && find bin share/applications share/icons share/omasharp ! -type d 2>/dev/null || true)
+[ -z "$left" ] || fail "release: uninstall left $left"
+# Panels have no release.
+(cd "$work/NotesPanel" && dotnet publish -t:Package -v quiet -nologo) >"$work/package-panel.log" 2>&1 && fail "package: a panel made a release"
+grep -q "Package makes window app releases" "$work/package-panel.log" || { tail -10 "$work/package-panel.log"; fail "package: no message for a panel"; }
 
 step "examples, through check.sh"
 (cd "$root/examples/omacalc" && $check --offscreen --release) >"$work/omacalc.log" 2>&1 || { tail -30 "$work/omacalc.log"; fail "omacalc"; }

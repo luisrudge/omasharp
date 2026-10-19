@@ -50,6 +50,8 @@ Apps follow the current Omarchy theme and repaint the moment you switch. QML bin
    dotnet publish -t:Install                  # installs ~/.local/bin/tally and a launcher entry
    ```
 
+   To share a window app, push it to GitHub and tag a version. The template's release workflow attaches the app to a GitHub release, and people install it with one command, without sudo or .NET: `curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | sh` ([how](https://github.com/luisrudge/omasharp/blob/main/template/.agents/skills/omasharp/references/build.md#sharing-a-window-app)).
+
 Building needs the SDK plus qmake6, g++ and Qt 6, which Omarchy ships. A published app needs only Qt.
 
 To try a version that isn't released yet, build the template from source ([CONTRIBUTING.md](https://github.com/luisrudge/omasharp/blob/main/CONTRIBUTING.md#try-your-changes)).

@@ -2,6 +2,19 @@
 
 One section per `bridge/VERSION`. Apps update with `dotnet build -t:UpdateBridge`; entries marked **ABI** change the C ABI (`bridge/host/omasharp.h` ⟷ `bridge/cs/Native.cs`), so an app that customized either file must merge both before it runs again.
 
+## 0.1.4
+
+Window apps can be shared with one command, no sudo and no .NET:
+`curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | sh` (`sh -s uninstall` removes it, and running it again updates).
+
+- `dotnet publish -t:Package` makes a release in `artifacts/`: `<AppId>-linux-x64.tar.gz`, `SHA256SUMS` and `install.sh` (the new `bridge/install.sh`, with the app's values).
+- The template has `.github/workflows/release.yml` (window apps) and a `<Version>`. A `v<Version>` tag runs the unit tests, builds the app on Omarchy's stable mirror (the host needs the Qt it was built with or newer) and attaches the three files to a GitHub release.
+- `install.sh` checks the download against `SHA256SUMS`, checks with `ldd` that the system's libraries are new enough (if not, it installs nothing and says to update), swaps the new copy in so a running one keeps working, and runs one install of an app at a time.
+- `-t:Install` and `-t:Uninstall` run that same `install.sh`, on the files a release would have, in the same places as before. The launcher's cache refresh moved from `desktop.sh` into it.
+- `references/build.md` explains it ("Sharing a window app").
+
+`UpdateBridge` brings in the bridge and skill changes. An existing app copies `.github/workflows/release.yml` from a new app, adds `<Version>` to its csproj and `artifacts/` to `.gitignore`. An app that customized `Omasharp.targets` or `desktop.sh` merges the `.upstream` files. The C ABI is unchanged.
+
 ## 0.1.3
 
 Fixes from porting disktiles to the published template:

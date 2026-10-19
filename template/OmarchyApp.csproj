@@ -5,6 +5,8 @@
     <!-- The Wayland app_id (window rules match on it) or the shell plugin id. -->
     <AppId>omarchy-app-id</AppId>
     <AppName>OmarchyApp</AppName>
+    <!-- Window apps: a v<Version> git tag publishes a release (.github/workflows/release.yml). -->
+    <Version>0.1.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="tests/**" />
