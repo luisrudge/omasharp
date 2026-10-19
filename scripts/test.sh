@@ -43,6 +43,7 @@ for f in AGENTS.md CLAUDE.md .editorconfig .agents/skills/omasharp/SKILL.md .age
   [ -f "$work/Win/$f" ] || fail "window app: no $f"
 done
 grep -q "  .agents/skills/omasharp/SKILL.md$" "$work/Win/bridge/MANIFEST" || fail "MANIFEST doesn't cover the skill"
+grep -qx "@AGENTS.md" "$work/Win/CLAUDE.md" || fail "CLAUDE.md doesn't import AGENTS.md"
 
 step "--app-id sets the app id"
 new -n Named --app-id named-app
