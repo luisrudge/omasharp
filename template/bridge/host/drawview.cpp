@@ -303,8 +303,12 @@ private:
             y1 = std::max(y1, v.y);
         }
         const QRectF area(std::floor(x0), std::floor(y0), std::ceil(x1) - std::floor(x0), std::ceil(y1) - std::floor(y0));
-        const qreal dpr = window()->effectiveDevicePixelRatio();
+        // At most 4096 x 4096 pixels (64 MB): shapes spread far apart are drawn at a lower
+        // resolution rather than in a huge image.
+        const qreal maxPixels = 4096.0 * 4096.0;
+        const qreal dpr = qMin(window()->effectiveDevicePixelRatio(), std::sqrt(maxPixels / qMax(1.0, area.width() * area.height())));
         QImage image(QSize(qMax(1, qCeil(area.width() * dpr)), qMax(1, qCeil(area.height() * dpr))), QImage::Format_ARGB32_Premultiplied);
+        if (image.isNull()) return new QSGNode; // out of memory: no shapes rather than a crash
         image.fill(Qt::transparent);
         QPainter painter(&image);
         painter.scale(dpr, dpr);

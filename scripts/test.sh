@@ -73,7 +73,7 @@ cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$wo
 step "DrawView draws its shapes under Qt's software renderer (--offscreen)"
 sed -i '/^public class Backend : BackendBase$/{n;a\
     public string Snapshot => Environment.GetEnvironmentVariable("SNAPSHOT") ?? "";\
-    public void Draw() { var d = new Drawing(1, 0, 0); d.Rect(0, 0, 200, 100, Color.Parse("#ff0000")); Bridge.Show("box", d); }
+    public void Draw() { var d = new Drawing(1, 0, 0); d.Rect(0, 0, 200, 100, Color.Parse("#ff0000")); d.Rect(40000, 40000, 1, 1, Color.Parse("#00ff00")); Bridge.Show("box", d); }
 }' "$work/Win/Backend.cs"
 cat > "$work/Win/Main.qml" <<'EOF'
 import QtQuick
@@ -90,6 +90,7 @@ Window {
 }
 EOF
 (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "SNAPSHOT=$work/box.ppm") >"$work/win-draw.log" 2>&1 || { tail -20 "$work/win-draw.log"; fail "DrawView app"; }
+# A second shape far away: the image stays bounded (40000 x 40000 pixels would be 6 GB) and the box still shows.
 # The share of red pixels in the grabbed DrawView (binary PPM: four header fields, then RGB bytes).
 red=$(python3 -I -c 'import sys; d = open(sys.argv[1], "rb").read(); f = d.split(maxsplit=4); n = int(f[1]) * int(f[2]); px = d[-n * 3:]
 print(sum(px[i:i + 3] == b"\xff\x00\x00" for i in range(0, n * 3, 3)) * 100 // n)' "$work/box.ppm" 2>/dev/null || echo 0)
