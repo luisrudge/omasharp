@@ -24,7 +24,7 @@ static class Shim
 
               // The backend program (native AOT). Default: bin/{{program}} next to this file.
               property string program: decodeURIComponent(Qt.resolvedUrl("bin/{{program}}").toString().replace("file://", ""))
-              // Dev mode (dotnet run / dotnet watch): run the JIT build instead.
+              // Dev mode (dotnet run, check.sh): run the JIT build instead.
               readonly property string _devDll: Quickshell.env("OMASHARP_BACKEND_DLL") || ""
               property var command: _devDll ? [Quickshell.env("DOTNET_HOST_PATH") || "dotnet", _devDll] : [program]
               property bool active: true

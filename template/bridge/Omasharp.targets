@@ -57,13 +57,9 @@
     <LinkerArg Include="-s" />
   </ItemGroup>
 
-  <!-- Dev builds run on whatever .NET runtime the SDK has. Window apps turn startup hooks
-       back on (PublishAot turns them off) so `dotnet watch` can hot-reload C#. Panels don't:
-       their backend is a grandchild that the harness respawns on QML reloads, which hot
-       reload can't follow, so C# edits restart the harness instead (about 3 s). -->
+  <!-- Dev builds run on whatever .NET runtime the SDK has. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <RollForward>LatestMajor</RollForward>
-    <StartupHookSupport Condition="'$(OmarchyKind)' == 'window'">true</StartupHookSupport>
     <DefineConstants>$(DefineConstants);OMASHARP_DEV</DefineConstants>
   </PropertyGroup>
 
@@ -82,7 +78,7 @@
     <OutputType>Library</OutputType>
     <!-- Release: the native AOT library is lib<AppId>.so, which the host <AppId> loads. -->
     <TargetName Condition="'$(Configuration)' == 'Release'">lib$(AppId)</TargetName>
-    <!-- Debug = dev mode: a managed Main run by the host through hostfxr (dotnet run / dotnet watch). -->
+    <!-- Debug = dev mode: a managed Main run by the host through hostfxr (dotnet run, check.sh). -->
     <OutputType Condition="'$(Configuration)' == 'Debug'">Exe</OutputType>
     <UseAppHost Condition="'$(Configuration)' == 'Debug'">false</UseAppHost>
     <NativeLib>Shared</NativeLib>
@@ -99,8 +95,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The host reloads QML itself; dotnet watch only needs to see C#. -->
-    <None Update="**/*.qml;**/*.js" Watch="false" />
     <!-- When bridge/ sits inside the app (the template), the default glob already has these. -->
     <Compile Remove="$(OmasharpDir)cs/*.cs" />
     <Compile Include="$(OmasharpDir)cs/*.cs" Link="bridge/%(Filename)%(Extension)" />
@@ -175,7 +169,7 @@
     <Message Importance="high" Text="$(AssemblyName) -> $(_PublishFull)$(AppId) (+ lib$(AppId).so, $(AppId).rcc)" />
   </Target>
 
-  <!-- dotnet run / dotnet watch in Debug: start the dev host (window) or the panel harness.
+  <!-- dotnet run in Debug: start the dev host (window) or the panel harness.
        Set late, once TargetPath is known. -->
   <Target Name="OmasharpRunArguments" BeforeTargets="ComputeRunArguments" DependsOnTargets="OmasharpCachedHost" Condition="'$(Configuration)' == 'Debug'">
     <PropertyGroup Condition="'$(OmarchyKind)' == 'window'">
@@ -188,7 +182,7 @@
     </PropertyGroup>
   </Target>
 
-  <!-- Dev mode: make sure the cached host exists after a Debug build (dotnet watch runs it). -->
+  <!-- Dev mode: make sure the cached host exists after a Debug build. -->
   <Target Name="OmasharpDevHost" AfterTargets="Build" DependsOnTargets="OmasharpCachedHost" Condition="'$(OmarchyKind)' == 'window' and '$(Configuration)' == 'Debug'" />
 
   <Target Name="OmasharpQmlShim" AfterTargets="Publish" Condition="'$(OmarchyKind)' == 'panel'">
