@@ -4,7 +4,7 @@ Benchmark helpers for contributors. None of them show anything on your screen or
 
 | Script | What it does |
 |---|---|
-| `bench.sh LABEL CMD [ARGS]` | Runs an app once on a hidden special workspace. Prints time to window, RSS and PSS, threads and processes for the whole process tree, idle CPU and wake-ups over 10 s, and close time. `BENCH_IDLE=0` skips the idle sample. |
+| `bench.sh LABEL CMD [ARGS]` | Runs an app once on a hidden special workspace of its own, and finds its window by the app's pid, so parallel runs never touch each other's apps. Prints the window's class (check it's your app), time to window, RSS and PSS, threads and processes for the whole process tree, idle CPU and wake-ups over 10 s, and close time. `BENCH_IDLE=0` skips the idle sample. |
 | `summarize.py RUNS.txt [LABEL...]` | Turns `bench.sh` output into a Markdown table of medians and ranges. |
 | `session.sh` | `bench.sh` sources it to find your Hyprland session, even when the environment points at an old or nested one. |
 

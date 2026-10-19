@@ -9,3 +9,6 @@ end_of_line = lf
 # Declare types in namespaces: an app is one executable, and the backend lives in the global
 # namespace (BackendType defaults to Backend).
 dotnet_diagnostic.CA1050.severity = none
+# Names that are Visual Basic keywords (a record named Step, an interface method named Next): this
+# app is C# only.
+dotnet_diagnostic.CA1716.severity = none

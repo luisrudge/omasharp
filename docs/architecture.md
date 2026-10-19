@@ -21,7 +21,7 @@ window app                                    panel (omarchy-shell plugin)
 
 - `Model.cs` reflects over `Backend`: public instance properties and methods, camelCased for QML. Values cross the boundary as JSON in both transports, written and read with `Utf8JsonWriter`/`JsonDocument` (no reflection-based serializer). Your own classes and records become JS objects; to keep their properties under trimming, the build roots the app's own assembly. `INotifyPropertyChanged` becomes notifications, always delivered on the UI thread.
 - `Ui.cs`: `BackendBase` (`Set`, `Notify`, `Raise`), `Ui.Post`, a `SynchronizationContext` so `await` returns to the UI thread, and `Bridge` (`Args`, `Show`, `IsNativeAot`).
-- `Drawing.cs` builds a packed buffer of shapes for `DrawView`. `Theme.cs` reads Omarchy's `colors.toml` for C#.
+- `Drawing.cs` builds a packed buffer of shapes for `DrawView`. `Theme.cs` reads Omarchy's `colors.toml` and `theme.name` for C#.
 - Transports, chosen at compile time: `Native.cs` (`OMASHARP_NATIVE`, window apps), `Dev.cs` (window apps in Debug), `Stdio.cs` + `Shim.cs` (`OMASHARP_STDIO`, panels). The unused ones compile away, which is also why unit tests can compile the whole bridge.
 
 ## Window apps: the host (`bridge/host/`)
@@ -32,7 +32,7 @@ The host is one small Qt program, the same binary for every app. It's built once
 2. Sets the Wayland app_id (`QGuiApplication::setDesktopFileName`) from the app's `AppId`, so Hyprland window rules match it.
 3. Calls `start(host)`. C# constructs `Backend` and returns a description of its properties and methods.
 4. Builds `backend`: a `QQmlPropertyMap` holding every property (bindings work), plus one JS function per method that calls through the C ABI. Writes from QML go to C# and come back as whatever C# ended up with.
-5. Registers `<appid>.rcc` (the app's QML, fonts and images) and loads `qrc:/Main.qml`. It also exposes `theme` (Omarchy's colors, live) and the `DrawView` type.
+5. Registers `<appid>.rcc` (the app's QML, fonts and images) and loads `qrc:/Main.qml`. It also exposes `theme` (Omarchy's colors and theme name, live) and the `DrawView` type.
 
 On exit (`aboutToQuit`) the host calls `shutdown`, which runs the backend's `Dispose()` if it's `IDisposable`; the bridge hides `Dispose` from QML.
 
@@ -79,10 +79,10 @@ A crash in the backend ends that process only: the panel shows `lastError` and c
 ## Checks: the skill's `check.sh` (`.agents/skills/omasharp/scripts/`)
 
 `shot.sh` never touches the user's screen:
-- It starts a private nested Hyprland with a minimal config (no autostart, nothing exported to the session).
+- It starts a private nested Hyprland with a minimal config (no autostart, nothing exported to the session). Windows tile and fill its screen, as on Omarchy; `--float` floats them at their own size.
 - That compositor's window sits on a hidden special workspace of the user's session; no monitor is added.
 - The app runs inside it on its own headless output, on a private D-Bus session that starts no services (`shot-dbus.conf`): no notifications, portal dialogs or browser tabs reach the user's desktop. Files, network and child processes are not sandboxed.
-- The app's arguments and `--keys` reach it through files, never through a shell. `keys.py` types into it with wtype (`{Tab}`, `{Ctrl+a}`, `{Wait:500}`); the key input stays inside the nested compositor.
+- The app's arguments, `--env` variables and `--keys` reach it through files, never through a shell. `keys.py` types into it with wtype (`{Tab}`, `{Ctrl+a}`, `{Wait:500}`); the key input stays inside the nested compositor.
 - It saves `obj/shot.png` and fails if the app didn't start or died. `check.sh` also fails when the run log has a JS error or `Unable to assign` on a line that points at the app's own QML (`file://<app>/`, `qrc:/`, `@plugin/`), so errors in Qt's or the shell's components don't count. While it runs, the host (and the panel harness) writes every visible text to `obj/shot.txt`, so a check can read values, not just pixels (password fields only as their masked text).
 
 `check.sh` = unit tests (`tests/`), a dev build (or `--release`: the native AOT publish, failing on IL warnings; every build fails on any warning), then `shot.sh`. The build target `OmasharpLaunch` writes the command that runs the build to `obj/omasharp/launch`, so the script never has to work out paths. `--offscreen` runs a window app on Qt's offscreen platform instead (visible text only; CI).

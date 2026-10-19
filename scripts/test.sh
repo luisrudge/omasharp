@@ -5,9 +5,10 @@
 #   1. the analyzers' unit tests, then pack them and the template (generated apps restore
 #   Omasharp.Analyzers from that local package); 2. a new window app through the skill's check.sh
 #   (unit tests, dev and native AOT builds, each run headless on Qt's offscreen platform, checking
-#   the visible text); a new panel app: build, tests, AOT publish, its stdio protocol; 3. every
-#   omasharp rule fails a generated app's build; 4. bridge update on a fresh app is a no-op;
-#   5. SQLite the way the skill says (window app installed and run twice, panel); 6. the examples,
+#   the visible text; --env, DrawView's shapes, the theme name); a new panel app: build, tests, AOT
+#   publish, its stdio protocol; 3. every omasharp rule fails a generated app's build; 4. bridge
+#   update on a fresh app is a no-op; 5. SQLite the way the skill says (window app installed and run
+#   twice, panel), then -t:Install with the app's own app.desktop and -t:Uninstall; 6. the examples,
 #   through check.sh. Warnings fail every build (Omasharp.targets).
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -43,11 +44,102 @@ for f in AGENTS.md CLAUDE.md .editorconfig .agents/skills/omasharp/SKILL.md .age
   [ -f "$work/Win/$f" ] || fail "window app: no $f"
 done
 grep -q "  .agents/skills/omasharp/SKILL.md$" "$work/Win/bridge/MANIFEST" || fail "MANIFEST doesn't cover the skill"
+grep -qx "@AGENTS.md" "$work/Win/CLAUDE.md" || fail "CLAUDE.md doesn't import AGENTS.md"
+
+step "--app-id sets the app id"
+new -n Named --app-id named-app
+grep -q "<AppId>named-app</AppId>" "$work/Named/Named.csproj" || fail "--app-id: AppId not set"
 
 step "window app: check.sh (tests, dev build, offscreen run), then --release"
 (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen && sh .agents/skills/omasharp/scripts/check.sh --offscreen --release --no-tests) >"$work/win.log" 2>&1 || { tail -30 "$work/win.log"; fail "window app"; }
 grep -A3 "visible text" "$work/win.log"
 [ "$(grep -c "Nothing counted yet" "$work/win.log")" -eq 2 ] || fail "window app: expected text not shown in both builds"
+
+step "check.sh --env reaches the app as it is (--offscreen)"
+cp "$work/Win/Backend.cs" "$work/Backend.cs.good"; cp "$work/Win/Main.qml" "$work/Main.qml.good"
+sed -i '/^public class Backend : BackendBase$/{n;a\
+    public string Env => Environment.GetEnvironmentVariable("CHECK_ENV") ?? "";
+}' "$work/Win/Backend.cs"
+sed -i '0,/id: win/s//id: win\n  Label { text: "env: " + backend.env }/' "$work/Win/Main.qml"
+# shellcheck disable=SC2016 # literally: the app must see $HOME and backticks unexpanded
+value='a '\''b'\'' "c" $HOME `id` \x; d=e'
+(cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "CHECK_ENV=$value" --env QT_QUICK_BACKEND=software) >"$work/win-env.log" 2>&1 || { tail -20 "$work/win-env.log"; fail "check.sh --env"; }
+grep -qF "Label: env: $value" "$work/Win/obj/shot.txt" || { grep "env:" "$work/win-env.log"; fail "check.sh --env: the value didn't reach the app unchanged"; }
+grep -F "env:" "$work/Win/obj/shot.txt"
+(cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env QT_QPA_PLATFORM=wayland) >"$work/win-env-reserved.log" 2>&1 && fail "check.sh --env: QT_QPA_PLATFORM was accepted"
+grep -q "can't set QT_QPA_PLATFORM" "$work/win-env-reserved.log" || { cat "$work/win-env-reserved.log"; fail "check.sh --env: no message for a reserved variable"; }
+cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
+
+step "DrawView draws its shapes under Qt's software renderer (--offscreen)"
+sed -i '/^public class Backend : BackendBase$/{n;a\
+    public string Snapshot => Environment.GetEnvironmentVariable("SNAPSHOT") ?? "";\
+    public void Draw() { var d = new Drawing(1, 0, 0); d.Rect(0, 0, 200, 100, Color.Parse("#ff0000")); d.Rect(40000, 40000, 1, 1, Color.Parse("#00ff00")); Bridge.Show("box", d); }\
+    public void DrawLine() { var d = new Drawing(1, 0, 0); d.Rect(0, 0, 1, 1, Color.Parse("#ff0000")); d.Rect(2e8, 0, 1, 1, Color.Parse("#ff0000")); Bridge.Show("line", d); }\
+    public long PeakMb() => long.Parse(File.ReadLines("/proc/self/status").First(l => l.StartsWith("VmHWM:", StringComparison.Ordinal)).Split(" ", StringSplitOptions.RemoveEmptyEntries)[1]) / 1024;
+}' "$work/Win/Backend.cs"
+cat > "$work/Win/Main.qml" <<'EOF'
+import QtQuick
+import Omasharp
+
+Window {
+  visible: true
+  width: 400
+  height: 300
+  Text { text: "drawn" }
+  DrawView { id: box; width: 200; height: 100; source: "box"; view: [1, 0, 0] }
+  DrawView { y: 120; width: 200; height: 10; source: "line"; view: [1, 0, 0] }
+  Text { id: peak; y: 140 }
+  Component.onCompleted: { backend.draw(); backend.drawLine() }
+  Timer { interval: 300; running: true; onTriggered: box.grabToImage(r => { r.saveToFile(backend.snapshot); peak.text = "peak MB: " + backend.peakMb() }) }
+}
+EOF
+(cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "SNAPSHOT=$work/box.ppm") >"$work/win-draw.log" 2>&1 || { tail -20 "$work/win-draw.log"; fail "DrawView app"; }
+# A second shape far away: the image stays bounded (40000 x 40000 pixels would be 6 GB) and the box still shows.
+# The share of red pixels in the grabbed DrawView (binary PPM: four header fields, then RGB bytes).
+red=$(python3 -I -c 'import sys; d = open(sys.argv[1], "rb").read(); f = d.split(maxsplit=4); n = int(f[1]) * int(f[2]); px = d[-n * 3:]
+print(sum(px[i:i + 3] == b"\xff\x00\x00" for i in range(0, n * 3, 3)) * 100 // n)' "$work/box.ppm" 2>/dev/null || echo 0)
+echo "red: $red% of the DrawView"
+[ "$red" -ge 90 ] || fail "DrawView: the software renderer drew no shapes"
+# A long, thin drawing (2e8 x 1, a 230 MB image without a cap on each side) stays bounded too:
+# the app's peak memory after drawing both.
+peak=$(sed -n 's/.*peak MB: \([0-9]*\).*/\1/p' "$work/Win/obj/shot.txt")
+echo "peak memory: ${peak:-?} MB"
+[ -n "$peak" ] && [ "$peak" -lt 300 ] || fail "DrawView: the software renderer's image wasn't bounded (peak ${peak:-?} MB)"
+cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
+
+step "Theme.Name (C#) and theme.name (QML) read current/theme.name, and follow a switch"
+state=$work/theme-home/.local/state/omarchy/current; mkdir -p "$state/theme"; echo tokyo-night > "$state/theme.name"
+sed -i '/^public class Backend : BackendBase$/{n;a\
+    public Backend() => Theme.Changed += () => Notify(nameof(ThemeName));\
+    public string ThemeName => Theme.Name;
+}' "$work/Win/Backend.cs"
+cat > "$work/Win/Main.qml" <<'EOF'
+import QtQuick
+
+Window {
+  visible: true
+  width: 400
+  height: 300
+  Column {
+    Text { text: "qml: " + theme.name }
+    Text { text: "cs: " + backend.themeName }
+  }
+}
+EOF
+(cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "HOME=$work/theme-home") >"$work/win-theme.log" 2>&1 || { tail -20 "$work/win-theme.log"; fail "theme name app"; }
+{ grep -q "qml: tokyo-night" "$work/Win/obj/shot.txt" && grep -q "cs: tokyo-night" "$work/Win/obj/shot.txt"; } || { cat "$work/Win/obj/shot.txt"; fail "theme name: not read"; }
+# The same build, run by hand: switch the theme the way omarchy-theme-set does (theme.name rewritten).
+set --; while IFS= read -r a; do set -- "$@" "$a"; done < "$work/Win/obj/omasharp/launch"
+t=$work/theme.txt
+HOME=$work/theme-home QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software OMASHARP_TEXT_DUMP="$t" timeout 20 "$@" >"$work/theme-run.log" 2>&1 &
+pid=$!
+for _ in $(seq 100); do grep -q "cs: tokyo-night" "$t" 2>/dev/null && break; sleep 0.1; done
+echo catppuccin > "$state/theme.name"
+for _ in $(seq 50); do grep -q "qml: catppuccin" "$t" && grep -q "cs: catppuccin" "$t" && break; sleep 0.1; done
+kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true
+cat "$t"
+{ grep -q "qml: catppuccin" "$t" && grep -q "cs: catppuccin" "$t"; } || { tail -20 "$work/theme-run.log"; fail "theme name: didn't follow the switch"; }
+cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
 
 step "check.sh fails when the app's QML throws while running"
 cp "$work/Win/Main.qml" "$work/Main.qml.good"
@@ -59,6 +151,8 @@ cp "$work/Main.qml.good" "$work/Win/Main.qml"
 
 step "panel app: build, tests, AOT publish, stdio protocol"
 new -n Pan --kind panel
+# Names that are Visual Basic keywords build: the app is C# only (CA1716 is off in .editorconfig).
+printf '%s\n' 'public record Step(int Index);' 'public interface ICursor { void Next(); }' > "$work/Pan/Keywords.cs"
 (cd "$work/Pan" && dotnet build -v quiet -nologo && dotnet run --project tests && dotnet publish -v quiet -nologo) >"$work/pan.log" 2>&1 || { tail -30 "$work/pan.log"; fail "panel app"; }
 grep -E "warning IL[0-9]+" "$work/pan.log" && fail "panel app: AOT warnings"
 [ -s "$work/Pan/plugin/Backend.qml" ] || fail "panel app: no generated Backend.qml"
@@ -215,6 +309,48 @@ return failures == 0 ? 0 : 1;
 EOF
 (cd "$work/NotesPanel" && dotnet run --project tests) >"$work/notes-tests.log" 2>&1 || { tail -30 "$work/notes-tests.log"; fail "sqlite panel: unit tests"; }
 grep -E "^(ok|FAIL)" "$work/notes-tests.log"
+
+step "Install with the app's own app.desktop, then Uninstall (the same private HOME)"
+cat > "$work/Notes/app.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Notes
+Comment=Notes kept in SQLite
+Exec=@EXEC@ %f
+Icon=wrong
+StartupWMClass=wrong
+Terminal=false
+Categories=Utility;
+MimeType=text/plain;
+Actions=new;
+
+[Desktop Action new]
+Name=New note
+Exec=@EXEC@ --new
+EOF
+printf '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"/>\n' > "$work/Notes/icon.svg"
+as_home() { (cd "$work/Notes" && HOME=$h DOTNET_CLI_HOME=$real_home NUGET_PACKAGES=$nuget_cache XDG_CACHE_HOME=$cache "$@" -v quiet -nologo); }
+as_home dotnet publish -t:Install >"$work/desktop.log" 2>&1 || { tail -30 "$work/desktop.log"; fail "app.desktop: publish -t:Install"; }
+entry=$h/.local/share/applications/notes.desktop; exe=$h/.local/share/omasharp/notes/notes
+cat "$entry"
+for line in "Exec=\"$exe\" %f" "Exec=\"$exe\" --new" "StartupWMClass=notes" "Icon=notes" "Comment=Notes kept in SQLite" ""; do
+  grep -qxF -- "$line" "$entry" || fail "app.desktop: no line '$line' in the installed entry"
+done
+grep -q "wrong\|@EXEC@" "$entry" && fail "app.desktop: Install didn't set Icon, StartupWMClass or Exec"
+if command -v update-desktop-database >/dev/null; then
+  grep -q "text/plain=notes.desktop" "$h/.local/share/applications/mimeinfo.cache" || fail "app.desktop: MIME cache not refreshed"
+fi
+# An invalid entry fails Install and leaves the installed one as it was.
+if command -v desktop-file-validate >/dev/null; then
+  cp "$entry" "$work/entry.good"
+  sed -i 's/^Type=Application$/Type=Nonsense/' "$work/Notes/app.desktop"
+  as_home dotnet publish -t:Install >"$work/desktop-bad.log" 2>&1 && fail "app.desktop: an invalid entry was installed"
+  { grep -q 'app.desktop.*value "Nonsense" for key "Type"' "$work/desktop-bad.log" && grep -q "app.desktop.*not a valid desktop entry" "$work/desktop-bad.log"; } || { tail -20 "$work/desktop-bad.log"; fail "app.desktop: no message for an invalid entry"; }
+  cmp -s "$entry" "$work/entry.good" || fail "app.desktop: a failed Install changed the installed entry"
+fi
+as_home dotnet build -t:Uninstall >>"$work/desktop.log" 2>&1 || { tail -30 "$work/desktop.log"; fail "app.desktop: -t:Uninstall"; }
+left=$(cd "$h/.local" && find bin share/applications share/icons share/omasharp ! -type d 2>/dev/null || true)
+[ -z "$left" ] || fail "app.desktop: Uninstall left $left"
 
 step "examples, through check.sh"
 (cd "$root/examples/omacalc" && $check --offscreen --release) >"$work/omacalc.log" 2>&1 || { tail -30 "$work/omacalc.log"; fail "omacalc"; }

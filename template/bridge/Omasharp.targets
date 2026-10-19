@@ -264,8 +264,13 @@
     <Copy Condition="'$(OmarchyKind)' == 'window'" SourceFiles="@(_AppFiles)" DestinationFolder="$(_LibDir)" />
     <Exec Condition="'$(OmarchyKind)' == 'window'" Command="mkdir -p &quot;$(_Home)/.local/bin&quot; &amp;&amp; ln -sfn &quot;$(_LibDir)/$(AppId)&quot; &quot;$(_Home)/.local/bin/$(AppId)&quot;" />
     <Copy Condition="'$(OmarchyKind)' == 'window'" SourceFiles="@(_Icon)" DestinationFiles="$(_Home)/.local/share/icons/hicolor/scalable/apps/$(AppId)%(Extension)" />
-    <WriteLinesToFile Condition="'$(OmarchyKind)' == 'window'" File="$(_Home)/.local/share/applications/$(AppId).desktop" Overwrite="true"
+    <!-- The launcher entry: the app's own app.desktop if it has one (@EXEC@ in it becomes the
+         installed binary; Install sets StartupWMClass, and Icon when the app ships an icon), else a minimal one. -->
+    <WriteLinesToFile Condition="'$(OmarchyKind)' == 'window' and !Exists('app.desktop')" File="$(_Home)/.local/share/applications/$(AppId).desktop" Overwrite="true"
       Lines="[Desktop Entry];Type=Application;Name=$(AppName);Exec=$(_LibDir)/$(AppId);Icon=$(AppId);StartupWMClass=$(AppId);Terminal=false" />
+    <Exec Condition="'$(OmarchyKind)' == 'window' and Exists('app.desktop')" StandardOutputImportance="high"
+      Command="sh &quot;$(OmasharpDir)desktop.sh&quot; &quot;$(MSBuildProjectDirectory)/app.desktop&quot; &quot;$(_Home)/.local/share/applications/$(AppId).desktop&quot; &quot;$(_LibDir)/$(AppId)&quot; $(AppId) @(_Icon->Count())" />
+    <Exec Condition="'$(OmarchyKind)' == 'window'" Command="sh &quot;$(OmasharpDir)desktop.sh&quot; --refresh &quot;$(_Home)/.local/share&quot;" />
     <!-- panel: copy the plugin folder into the shell's plugins and enable it -->
     <Copy Condition="'$(OmarchyKind)' == 'panel'" SourceFiles="@(_PluginFiles)" DestinationFiles="@(_PluginFiles->'$(_PluginTarget)/%(RecursiveDir)%(Filename)%(Extension)')" />
     <Exec Condition="'$(OmarchyKind)' == 'panel'" Command="chmod +x &quot;$(_PluginTarget)/bin/$(AssemblyName)&quot; &amp;&amp; for i in 1 2 3 4 5 6 7 8 9 10; do omarchy plugin enable $(AppId) &gt;/dev/null 2&gt;&amp;1 &amp;&amp; exit 0; omarchy-shell shell rescanPlugins &gt;/dev/null 2&gt;&amp;1; sleep 0.5; done; echo 'omarchy plugin enable $(AppId) failed' &gt;&amp;2; exit 1" />
@@ -275,6 +280,7 @@
 
   <Target Name="Uninstall" DependsOnTargets="OmasharpCheckAppId">
     <Exec Condition="'$(OmarchyKind)' == 'window'" Command="rm -rf &quot;$(_Home)/.local/share/omasharp/$(AppId)&quot; &quot;$(_Home)/.local/bin/$(AppId)&quot; &quot;$(_Home)/.local/share/applications/$(AppId).desktop&quot; &quot;$(_Home)/.local/share/icons/hicolor/scalable/apps/$(AppId).svg&quot; &quot;$(_Home)/.local/share/icons/hicolor/scalable/apps/$(AppId).png&quot;; rmdir &quot;$(_Home)/.local/share/omasharp&quot; 2>/dev/null || true" />
+    <Exec Condition="'$(OmarchyKind)' == 'window'" Command="sh &quot;$(OmasharpDir)desktop.sh&quot; --refresh &quot;$(_Home)/.local/share&quot;" />
     <Exec Condition="'$(OmarchyKind)' == 'panel'" Command="omarchy plugin disable $(AppId); rm -rf &quot;$(_Home)/.config/omarchy/plugins/$(AppId)&quot;" />
     <Message Importance="high" Text="Uninstalled $(AppId)" />
   </Target>

@@ -1,35 +1,41 @@
 #!/bin/sh
 # bench.sh LABEL CMD [ARGS...]: one run on a hidden special workspace of the real session.
-# Prints: label window_ms rss_kb pss_kb threads procs idle_cpu_permille wakeups_s close_ms
+# Prints: label class window_ms rss_kb pss_kb threads procs idle_cpu_permille wakeups_s close_ms
+# (class: the window's class, so a wrong match shows.)
 # Memory, threads, CPU and wake-ups cover the whole process tree (app + any child backend).
 # BENCH_IDLE=0 skips the 10 s idle sample.
+# Each run gets a special workspace of its own and finds the app by its pid (the launcher execs
+# it), so bench.sh runs at the same time never measure, close or kill each other's apps.
 set -u
 label=$1; shift
 # shellcheck source=tools/session.sh
 . "$(dirname "$0")/session.sh"
 export HYPRLAND_INSTANCE_SIGNATURE="$MAIN_SIG" WAYLAND_DISPLAY="$MAIN_WL"
 tmp=${XDG_RUNTIME_DIR}/omasharp-bench; mkdir -p "$tmp"
-pid=; launcher=
+pid=; launcher=; log=; ok=
 # shellcheck disable=SC2013 # child pids are single words
 tree() { echo "$1"; for c in $(cat "/proc/$1/task/"*/children 2>/dev/null); do tree "$c"; done; }
 cleanup() {
   [ -n "$pid" ] && for p in $(tree "$pid"); do kill -9 "$p" 2>/dev/null; done
-  rm -f "$launcher"
+  rm -f "$launcher" "$launcher.pid"
+  [ -n "$ok" ] && rm -f "$log"
 }
 trap cleanup EXIT
 # A hidden special workspace: no monitor is added to the user's session (layout and pointer untouched).
-ws="special:omasharp-bench"
-launcher=$(mktemp "$tmp/launch.XXXXXX")
-{ echo '#!/bin/sh'; printf 'exec'; for a in "$@"; do printf " '%s'" "$a"; done; echo " >'$tmp/$label.log' 2>&1"; } >"$launcher"; chmod +x "$launcher"
+ws="special:omasharp-bench-$$"
+launcher=$(mktemp "$tmp/launch.XXXXXX"); log=$tmp/$label.$$.log
+{ echo '#!/bin/sh'; echo "echo \$\$ > '$launcher.pid'"; printf 'exec'; for a in "$@"; do printf " '%s'" "$a"; done; echo " >'$log' 2>&1"; } >"$launcher"; chmod +x "$launcher"
 start=$(date +%s%N)
 hyprctl dispatch "hl.dsp.exec_cmd(\"$launcher\", { workspace = \"$ws silent\" })" >/dev/null
+addr=
 for _ in $(seq 500); do
-  pid=$(hyprctl clients -j | jq -r ".[] | select(.workspace.name==\"$ws\") | .pid" | head -1)
-  [ -n "$pid" ] && break; sleep 0.01
+  [ -n "$pid" ] || pid=$(cat "$launcher.pid" 2>/dev/null)
+  [ -n "$pid" ] && addr=$(hyprctl clients -j | jq -r --argjson p "$pid" '.[] | select(.pid == $p) | .address' | head -1)
+  [ -n "$addr" ] && break; sleep 0.01
 done
-[ -n "$pid" ] || { echo "$label no-window"; exit 1; }
+[ -n "$addr" ] || { echo "$label no-window (log: $log)"; exit 1; }
 win=$(( ($(date +%s%N) - start) / 1000000 ))
-addr=$(hyprctl clients -j | jq -r ".[] | select(.workspace.name==\"$ws\") | .address" | head -1)
+class=$(hyprctl clients -j | jq -r --arg a "$addr" '.[] | select(.address == $a) | .class')
 sleep 3
 procs=$(tree "$pid")
 rss=0; pss=0; thr=0; n=0
@@ -52,4 +58,5 @@ for _ in $(seq 300); do [ -d "/proc/$pid" ] || { close=$(( ($(date +%s%N)-s)/100
 [ "$close" = - ] && close=timeout
 sleep 0.2
 left=0; for p in $procs; do [ -d "/proc/$p" ] && left=$((left+1)); done
-echo "$label window_ms=$win rss_kb=$rss pss_kb=$pss threads=$thr procs=$n idle_permille=$idle wakeups_s=$wk close_ms=$close leftover_procs=$left"
+ok=1
+echo "$label class=$class window_ms=$win rss_kb=$rss pss_kb=$pss threads=$thr procs=$n idle_permille=$idle wakeups_s=$wk close_ms=$close leftover_procs=$left"
