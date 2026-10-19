@@ -7,21 +7,24 @@
 #   --keys KEYS      type into the app first: text plus {Tab} {Enter} {Ctrl+a} {Wait:500} ... (keys.py)
 #   --args ARGS      command-line arguments for the app (split on whitespace; Bridge.Args)
 #   --size WxH       the screen size in logical pixels (default 1280x960)
+#   --float          float the window at its own size, centred, instead of tiling it to fill the
+#                    screen (for apps that float on Omarchy, like omacalc)
 #   --no-tests       skip the unit tests
 #   --offscreen      window apps without a Hyprland session (CI): Qt's offscreen platform, visible
 #                    text only (no screenshot, no keys)
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
-release=; keys=; args=; size=; tests=1; offscreen=; dir=.
+release=; keys=; args=; size=; float=; tests=1; offscreen=; dir=.
 while [ $# -gt 0 ]; do
   case $1 in
     --release) release=1 ;;
     --keys) keys=$2; shift ;;
     --args) args=$2; shift ;;
     --size) size=$2; shift ;;
+    --float) float=1 ;;
     --no-tests) tests= ;;
     --offscreen) offscreen=1 ;;
-    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "check: unknown option $1 (see --help)" >&2; exit 2 ;;
     *) dir=$1 ;;
   esac
@@ -66,7 +69,7 @@ if [ -n "$offscreen" ]; then
 else
   echo "== run (private compositor)"
   printf '%s' "$keys" > "$obj/keys"; printf '%s' "$args" > "$obj/args"
-  OMASHARP_SHOT_SIZE=$size OMASHARP_SHOT_KEYS_FILE=$obj/keys OMASHARP_SHOT_ARGS_FILE=$obj/args \
+  OMASHARP_SHOT_SIZE=$size OMASHARP_SHOT_FLOAT=$float OMASHARP_SHOT_KEYS_FILE=$obj/keys OMASHARP_SHOT_ARGS_FILE=$obj/args \
     sh "$here/shot.sh" "$PWD/obj/shot.png" "$obj/run.log" "$@" || exit 1
 fi
 

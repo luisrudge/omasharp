@@ -79,7 +79,7 @@ A crash in the backend ends that process only: the panel shows `lastError` and c
 ## Checks: the skill's `check.sh` (`.agents/skills/omasharp/scripts/`)
 
 `shot.sh` never touches the user's screen:
-- It starts a private nested Hyprland with a minimal config (no autostart, nothing exported to the session).
+- It starts a private nested Hyprland with a minimal config (no autostart, nothing exported to the session). Windows tile and fill its screen, as on Omarchy; `--float` floats them at their own size.
 - That compositor's window sits on a hidden special workspace of the user's session; no monitor is added.
 - The app runs inside it on its own headless output, on a private D-Bus session that starts no services (`shot-dbus.conf`): no notifications, portal dialogs or browser tabs reach the user's desktop. Files, network and child processes are not sandboxed.
 - The app's arguments and `--keys` reach it through files, never through a shell. `keys.py` types into it with wtype (`{Tab}`, `{Ctrl+a}`, `{Wait:500}`); the key input stays inside the nested compositor.
