@@ -402,6 +402,17 @@ for other in notes.new notes.old; do
   [ -f "$h/.local/share/omasharp/$other/libnotes.so" ] || fail "release: installing notes removed the app $other"
   rm -r "${h:?}/.local/share/omasharp/$other"
 done
+# While another install of the app holds its lock, the next one waits for it.
+( flock 9; touch "$work/locked"; while [ ! -e "$work/unlock" ]; do sleep 0.1; done ) 9>"$h/.local/share/omasharp/.notes.lock" &
+holder=$!
+while [ ! -e "$work/locked" ]; do sleep 0.05; done
+user_install >"$work/wait.log" 2>&1 &
+waiter=$!
+for _ in $(seq 100); do grep -q "Waiting for another install" "$work/wait.log" && break; sleep 0.1; done
+if ! grep -q "Waiting for another install" "$work/wait.log" || ! kill -0 "$waiter" 2>/dev/null; then
+  touch "$work/unlock"; cat "$work/wait.log"; fail "release: an install didn't wait for the one holding the lock"
+fi
+touch "$work/unlock"; wait "$holder"; wait "$waiter" || { cat "$work/wait.log"; fail "release: the install that waited failed"; }
 user_install uninstall >>"$work/user-install.log" 2>&1 || fail "release: install.sh uninstall"
 left=$(cd "$h/.local" && find bin share/applications share/icons share/omasharp ! -type d 2>/dev/null || true)
 [ -z "$left" ] || fail "release: uninstall left $left"

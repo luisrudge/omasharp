@@ -9,7 +9,7 @@ Window apps can be shared with one command, no sudo and no .NET:
 
 - `dotnet publish -t:Package` makes a release in `artifacts/`: `<AppId>-linux-x64.tar.gz`, `SHA256SUMS` and `install.sh` (the new `bridge/install.sh`, with the app's values).
 - The template has `.github/workflows/release.yml` (window apps) and a `<Version>`. A `v<Version>` tag runs the unit tests, builds the app on Omarchy's stable mirror (the host needs the Qt it was built with or newer) and attaches the three files to a GitHub release.
-- `install.sh` checks the download against `SHA256SUMS`, checks with `ldd` that the system's libraries are new enough (if not, it installs nothing and says to update), and swaps the new copy in so a running one keeps working.
+- `install.sh` checks the download against `SHA256SUMS`, checks with `ldd` that the system's libraries are new enough (if not, it installs nothing and says to update), swaps the new copy in so a running one keeps working, and runs one install of an app at a time.
 - `-t:Install` and `-t:Uninstall` run that same `install.sh`, on the files a release would have, in the same places as before. The launcher's cache refresh moved from `desktop.sh` into it.
 - `references/build.md` explains it ("Sharing a window app").
 

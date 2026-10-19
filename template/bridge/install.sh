@@ -32,10 +32,19 @@ refresh() {
   fi
 }
 
+# One install or uninstall of this app at a time (flock comes with util-linux).
+lock() {
+  mkdir -p "$data/omasharp"
+  command -v flock >/dev/null || return 0
+  exec 9>"$data/omasharp/.$id.lock"
+  flock -n 9 || { echo "Waiting for another install of $name to finish..."; flock 9; }
+}
+
 case ${1:-} in
 '') ;;
 uninstall)
-  rm -rf "$lib" "$entry" "$icons/scalable/apps/$id.svg" "$icons/scalable/apps/$id.png"
+  lock
+  rm -rf "$lib" "$entry" "$icons/scalable/apps/$id.svg" "$icons/scalable/apps/$id.png" "$data/omasharp/.$id.lock"
   [ -L "$bin" ] && rm -f "$bin"
   rmdir "$data/omasharp" 2>/dev/null || true
   refresh
@@ -82,7 +91,8 @@ fi
 
 # The new copy goes in beside the old one and then takes its place, so a running copy keeps working.
 # The temporary names start with a dot, which no app id does, so they're never another app's folder.
-mkdir -p "$data/omasharp" "$data/applications" "$(dirname "$bin")"
+lock
+mkdir -p "$data/applications" "$(dirname "$bin")"
 new=$data/omasharp/.$id.new old=$data/omasharp/.$id.old
 rm -rf "$new" "$old"
 cp -R "$from/app" "$new"
