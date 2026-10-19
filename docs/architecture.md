@@ -1,4 +1,4 @@
-# How omasharp works
+# How Omasharp works
 
 An app is `Backend.cs` (C#) and `Main.qml` (QML). The bridge connects them in one of two ways, depending on where the QML runs.
 

@@ -11,7 +11,7 @@
 #   OMASHARP_SHOT_ENV_FILE   environment variables for the app, one KEY=VALUE per line
 # Also: OMASHARP_SHOT_SIZE (WxH logical pixels at 1.5x; odd numbers are rounded down), OMASHARP_SHOT_WAIT (seconds before keys),
 # OMASHARP_SHOT_FLOAT=1 (float the window at its own size, centred, instead of tiling it).
-# (The omasharp repo's tools/session.sh has a copy of the session lookup; keep them in step.)
+# (The Omasharp repo's tools/session.sh has a copy of the session lookup; keep them in step.)
 set -u
 out=$1; log=$2; shift 2
 here=$(cd "$(dirname "$0")" && pwd)

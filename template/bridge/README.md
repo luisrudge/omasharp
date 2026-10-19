@@ -1,6 +1,6 @@
 # bridge/
 
-The code that connects `Backend.cs` to QML. You rarely need to touch it. The tools for checking an app live in the omasharp skill, in `.agents/skills/omasharp/scripts/`.
+The code that connects `Backend.cs` to QML. You rarely need to touch it. The tools for checking an app live in the Omasharp skill, in `.agents/skills/omasharp/scripts/`.
 
 | Path | What it does |
 |---|---|

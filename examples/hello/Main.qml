@@ -3,7 +3,7 @@ import QtQuick
 Window {
   width: 420; height: 260
   visible: true
-  title: "omasharp hello"
+  title: "Omasharp hello"
   color: "#1a1b26"
 
   Column {

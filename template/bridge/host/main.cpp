@@ -1,4 +1,4 @@
-// The omasharp host: runs Main.qml with the app's C# Backend exposed to QML as
+// The Omasharp host: runs Main.qml with the app's C# Backend exposed to QML as
 // `backend`. Properties live in a QQmlPropertyMap (so bindings work); methods are
 // JS functions on the same map (backend.increment(), backend.add(1, 2)).
 //

@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Omasharp.Analyzers: compile-time checks for omasharp apps (OMASHARP001...; see ../README.md).
+  <!-- Omasharp.Analyzers: compile-time checks for Omasharp apps (OMASHARP001...; see ../README.md).
        Apps reference it through bridge/Omasharp.targets; it runs in the compiler only, nothing of it
        ships in an app. Pack: dotnet pack analyzers/Omasharp.Analyzers -o artifacts -->
   <PropertyGroup>
@@ -13,9 +13,9 @@
     <!-- The package: the analyzer dll under analyzers/dotnet/cs, no dependencies. -->
     <PackageId>Omasharp.Analyzers</PackageId>
     <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../../template/bridge/VERSION').Trim())</Version>
-    <Title>omasharp analyzers</Title>
+    <Title>Omasharp analyzers</Title>
     <Authors>Luis Rudge</Authors>
-    <Description>Compile-time checks for omasharp apps (C# + QML on Omarchy): names QML can't take, members it can't see, setters that never tell QML, types that can't cross. Referenced by apps made with `dotnet new omarchy-app`.</Description>
+    <Description>Compile-time checks for Omasharp apps (C# + QML on Omarchy): names QML can't take, members it can't see, setters that never tell QML, types that can't cross. Referenced by apps made with `dotnet new omarchy-app`.</Description>
     <PackageTags>omarchy;qml;qt;analyzers;roslyn</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>

@@ -1,6 +1,6 @@
 // The app's logic. QML sees this object as `backend`: public properties and methods,
 // camelCased (Count -> backend.count, Increment() -> backend.increment()).
-// The same file works in a window app and in a shell panel. See the omasharp skill (.agents/skills/omasharp/).
+// The same file works in a window app and in a shell panel. See the Omasharp skill (.agents/skills/omasharp/).
 using Omasharp;
 
 public class Backend : BackendBase

@@ -1,9 +1,9 @@
 ---
 name: create-omasharp-app
-description: Create a new Omarchy app or omarchy-shell panel in C# and QML with omasharp. Use when the user asks to build, make or create an app, tool, utility or bar widget for Omarchy and there's no omasharp app to work in yet. For an existing omasharp app, use the omasharp skill inside it instead.
+description: Create a new Omarchy app or omarchy-shell panel in C# and QML with Omasharp. Use when the user asks to build, make or create an app, tool, utility or bar widget for Omarchy and there's no Omasharp app to work in yet. For an existing Omasharp app, use the Omasharp skill inside it instead.
 ---
 
-# Create an omasharp app
+# Create an Omasharp app
 
 1. **The .NET SDK.** `dotnet --list-sdks` must list 10.0 or newer. Omarchy ships the .NET runtime but not the SDK, so `dotnet` being on the PATH proves nothing. If it's missing, ask the user to run `omarchy pkg add dotnet-sdk` (it asks for their password; don't run sudo yourself) and wait until they have.
 2. **Build tools:** `qmake6`, `g++` and `make`, which Omarchy ships. If `g++` or `make` is missing, ask the user to run `omarchy pkg add base-devel`.

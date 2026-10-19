@@ -1,6 +1,6 @@
 <img src="https://raw.githubusercontent.com/luisrudge/omasharp/main/assets/icon.png" width="96" alt="omasharp">
 
-# omasharp
+# Omasharp
 
 Build Omarchy apps in C# and QML that start as fast as Omarchy's own C++ apps.
 
@@ -15,17 +15,17 @@ Add `--kind panel` to make an omarchy-shell panel instead. The same `Backend.cs`
 
 Every app also gets an agent skill in `.agents/skills/omasharp/`. Coding agents read it to learn how to build, check and install the app.
 
-omasharp runs on Linux x64 with Omarchy 4 (Hyprland, Qt 6.7 or newer). It isn't affiliated with Omarchy or Basecamp.
+Omasharp runs on Linux x64 with Omarchy 4 (Hyprland, Qt 6.7 or newer). It isn't affiliated with Omarchy or Basecamp.
 
 ## Why C#
 
-C++ and qmake are fine for small Omarchy utilities. C# pays off when an app has real logic. You get NuGet, async I/O, memory safety and compiler errors that agents can act on. The usual price is a slow start and a lot of memory. omasharp apps don't pay it.
+C++ and qmake are fine for small Omarchy utilities. C# pays off when an app has real logic. You get NuGet, async I/O, memory safety and compiler errors that agents can act on. The usual price is a slow start and a lot of memory. Omasharp apps don't pay it.
 
-Here's Omarchy's calculator, omacalc, next to the same calculator ported to C# with omasharp. The numbers are medians of 7 interleaved runs ([full results](https://github.com/luisrudge/omasharp/blob/main/examples/omacalc)).
+Here's Omarchy's calculator, omacalc, next to the same calculator ported to C# with Omasharp. The numbers are medians of 7 interleaved runs ([full results](https://github.com/luisrudge/omasharp/blob/main/examples/omacalc)).
 
-| | omacalc (C++) | omasharp (C#) |
+| | omacalc (C++) | Omasharp (C#) |
 |---|---|---|
-| | <img src="https://raw.githubusercontent.com/luisrudge/omasharp/main/examples/omacalc/omacalc-cpp.png" width="220" alt="Omarchy's C++ omacalc after typing 42*3+7="> | <img src="https://raw.githubusercontent.com/luisrudge/omasharp/main/examples/omacalc/omacalc-omasharp.png" width="220" alt="The omasharp port of omacalc after typing 42*3+7="> |
+| | <img src="https://raw.githubusercontent.com/luisrudge/omasharp/main/examples/omacalc/omacalc-cpp.png" width="220" alt="Omarchy's C++ omacalc after typing 42*3+7="> | <img src="https://raw.githubusercontent.com/luisrudge/omasharp/main/examples/omacalc/omacalc-omasharp.png" width="220" alt="The Omasharp port of omacalc after typing 42*3+7="> |
 | Time to window | 618 ms | 593 ms |
 | Memory (PSS) | 74.6 MB | 77.8 MB |
 | Idle wake-ups | 3/s | 3/s |
@@ -89,7 +89,7 @@ The agent offers to install a `create-omasharp-app` skill. Once it's installed, 
 - **Omarchy's look.** Colors follow the theme, apps use the Omarchy font, and the app id is yours to match in Hyprland window rules.
 - **Fast custom drawing.** `Drawing` in C# and `DrawView` in QML draw charts, maps and treemaps through Qt's scene graph.
 - **A quick dev loop.** An agent edits, then runs the skill's `check.sh`: a dev build and an invisible run in about 3 s. `dotnet run` opens the app for you to look at.
-- **Mistakes fail the build.** Warnings are errors, and omasharp's analyzers check `Backend` against what QML can use. They catch names QML can't take, members it can't see, setters that never tell it about a change, and types that can't cross over. Each error names the fix ([rules](https://github.com/luisrudge/omasharp/blob/main/analyzers/README.md)).
+- **Mistakes fail the build.** Warnings are errors, and Omasharp's analyzers check `Backend` against what QML can use. They catch names QML can't take, members it can't see, setters that never tell it about a change, and types that can't cross over. Each error names the fix ([rules](https://github.com/luisrudge/omasharp/blob/main/analyzers/README.md)).
 - **Checks agents can run.** The skill's `check.sh` runs the unit tests, then starts the app in a private compositor you never see. It prints every visible text, saves a screenshot and fails on QML errors. `--keys "12{Tab}3{Enter}"` types into the app first.
 - **The bridge is your code.** Each app gets its own copy of the bridge, like shadcn components. Change it if you need to. `dotnet build -t:UpdateBridge` brings in newer versions and keeps your changes.
 
@@ -108,7 +108,7 @@ One `Backend.cs` works as a window app (left) and as a panel (right):
 | `examples/` | [hello](https://github.com/luisrudge/omasharp/blob/main/examples/hello), one `Backend.cs` as a window app and a panel, and [omacalc](https://github.com/luisrudge/omasharp/blob/main/examples/omacalc), Omarchy's calculator ported to C#. |
 | `scripts/` | `test.sh` runs everything CI checks. `lint.sh` checks formatting. |
 | `tools/` | Benchmark helpers for contributors. |
-| `docs/` | [How omasharp works](https://github.com/luisrudge/omasharp/blob/main/docs/architecture.md). |
+| `docs/` | [How Omasharp works](https://github.com/luisrudge/omasharp/blob/main/docs/architecture.md). |
 | `assets/` | The logo and icon. |
 
 ## Contributing

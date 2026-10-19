@@ -1,6 +1,6 @@
 #!/bin/sh
 # manifest.sh OUT: the sha256 of every file the template copies into an app as plain source
-# (bridge/ and the omasharp skill), with the paths they get in the app. bridge/update.sh uses it
+# (bridge/ and the Omasharp skill), with the paths they get in the app. bridge/update.sh uses it
 # to tell an app's own changes apart from upstream ones.
 set -eu
 root=$(cd "$(dirname "$0")/../template" && pwd)

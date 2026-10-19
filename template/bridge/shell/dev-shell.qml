@@ -14,7 +14,7 @@ ShellRoot {
     onOpenedChanged: if (!opened) Qt.quit()
   }
 
-  // check.sh support (the omasharp skill): with OMASHARP_TEXT_DUMP=<file>, write the panel's visible texts there.
+  // check.sh support (the Omasharp skill): with OMASHARP_TEXT_DUMP=<file>, write the panel's visible texts there.
   // Same output as the window version in bridge/host/textdump.cpp; keep them in step.
   readonly property string dumpPath: Quickshell.env("OMASHARP_TEXT_DUMP") || ""
   FileView { id: dump; path: root.dumpPath; blockWrites: true }

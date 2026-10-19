@@ -1,10 +1,10 @@
 # Omasharp.Analyzers
 
-Build-time checks for omasharp apps. They catch the mistakes that would otherwise show up as a wrong or empty value in QML, and they flag them in the editor too.
+Build-time checks for Omasharp apps. They catch the mistakes that would otherwise show up as a wrong or empty value in QML, and they flag them in the editor too.
 
 Every app made with `dotnet new omarchy-app` references this package through `bridge/Omasharp.targets`. It runs inside the compiler only. Nothing from it ships in the app.
 
-The rules look at the backend, the class QML sees as `backend`. That's the class deriving from `Omasharp.BackendBase`, or the app's `BackendType`. Warnings fail the build in omasharp apps, so a rule only fires when it's sure.
+The rules look at the backend, the class QML sees as `backend`. That's the class deriving from `Omasharp.BackendBase`, or the app's `BackendType`. Warnings fail the build in Omasharp apps, so a rule only fires when it's sure.
 
 | Rule | Problem | Fix |
 |---|---|---|

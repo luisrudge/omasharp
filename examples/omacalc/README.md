@@ -20,7 +20,7 @@ It follows the Omarchy theme and repaints as soon as you switch:
 
 Both calculators after typing `42*3+7=`. The numbers are medians of 7 interleaved runs on one Omarchy laptop. `tools/bench.sh` reruns them.
 
-| | omacalc (C++) | omasharp (C#) |
+| | omacalc (C++) | Omasharp (C#) |
 |---|---|---|
 | | <img src="omacalc-cpp.png" width="220" alt="Omarchy's C++ omacalc"> | <img src="omacalc-omasharp.png" width="220" alt="This example"> |
 | Time to window, median (range) | 618 ms (555–1,053) | 593 ms (514–1,383) |

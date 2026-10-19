@@ -1,4 +1,4 @@
-# omasharp: notes for coding agents
+# Omasharp: notes for coding agents
 
 This repo is the `omarchy-app` dotnet template and its bridge (C# ⟷ QML for Omarchy). Read @CONTRIBUTING.md for layout and rules, and @docs/architecture.md before changing `template/bridge/`.
 

@@ -6,7 +6,7 @@
 #   Omasharp.Analyzers from that local package); 2. a new window app through the skill's check.sh
 #   (unit tests, dev and native AOT builds, each run headless on Qt's offscreen platform, checking
 #   the visible text; --size, --env, empty XDG dirs, DrawView's shapes, lines and areas, the theme
-#   name); a new panel app: build, tests, AOT publish, its stdio protocol; 3. every omasharp rule
+#   name); a new panel app: build, tests, AOT publish, its stdio protocol; 3. every Omasharp rule
 #   fails a generated app's build; 4. bridge update on a fresh app is a no-op; 5. SQLite the way the skill
 #   says (window app installed and run twice, panel), then -t:Install with the app's own app.desktop
 #   and -t:Uninstall; a release (-t:Package) installed, updated and removed by its install.sh as
@@ -289,7 +289,7 @@ echo "$reply" | grep -q '"op":"hello"' || fail "panel: no hello"
 echo "$reply" | grep -q '"op":"notify","name":"count","value":0' || fail "panel: set didn't echo the value C# kept"
 echo "$reply" | grep -q '"value":"Counted 1 time"' || fail "panel: increment didn't reach label"
 
-step "every omasharp rule fails a generated app's build, with its message"
+step "every Omasharp rule fails a generated app's build, with its message"
 new -n Lint
 # One mistake per rule (OMASHARP001-010), plus a method CA1822 would want static.
 cat > "$work/lint.cs" <<'EOF'

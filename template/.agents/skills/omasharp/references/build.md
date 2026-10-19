@@ -85,7 +85,7 @@ Put the two commands in the app's README.
 | `backend.foo` is `undefined` | not public, or a static member, or misspelt (QML names are camelCased) |
 | A value never updates in QML | the setter doesn't call `Set`/`Notify`, or a computed property's inputs don't `Notify` it |
 | Works in dev, fails in the release build | AOT: check the publish warnings (reflection, JSON, an unsafe package) |
-| The build fails with OMASHARP…, CA… or IL… | do what the message says; [backend.md](backend.md#the-build-checks-the-backend) has the omasharp rules and how to turn one off for a member |
+| The build fails with OMASHARP…, CA… or IL… | do what the message says; [backend.md](backend.md#the-build-checks-the-backend) has the Omasharp rules and how to turn one off for a member |
 | `can't load lib<id>.so` | run the published `<id>` binary from its own folder (the lib must sit next to it) |
 | You need GTK's Qt integration back (GTK file dialogs, GTK font settings) | the host switches Omarchy's `QT_QPA_PLATFORMTHEME=gtk3` to the portal theme (about 55 ms faster start); run with `OMASHARP_PLATFORMTHEME=gtk3` to keep it |
 | `Failed to register with host portal ... already associated with an application ID` in the output | harmless, every Qt app prints it here; ignore |

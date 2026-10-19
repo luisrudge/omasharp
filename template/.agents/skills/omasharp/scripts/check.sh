@@ -1,5 +1,5 @@
 #!/bin/sh
-# check.sh [options] [APP_DIR]: check an omasharp app without touching the user's screen.
+# check.sh [options] [APP_DIR]: check an Omasharp app without touching the user's screen.
 # Runs the unit tests (tests/), builds the app, then runs it in a private, invisible compositor
 # (shot.sh): prints every visible text in the window, saves obj/shot.png, and shows the app's
 # output. Exits non-zero if anything fails, including errors the app's QML throws while running.

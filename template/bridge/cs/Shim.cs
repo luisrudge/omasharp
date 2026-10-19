@@ -13,7 +13,7 @@ static class Shim
         var program = AppInfo.Name;
         var sb = new StringBuilder();
         sb.Append($$"""
-            // Generated from Backend.cs by the omasharp bridge. Don't edit: rebuild instead.
+            // Generated from Backend.cs by the Omasharp bridge. Don't edit: rebuild instead.
             // Runs the C# backend as a child process; a crash there can't take the shell down.
             import QtQuick
             import Quickshell

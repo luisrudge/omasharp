@@ -1,4 +1,4 @@
-// omasharp bridge: exposes the app's Backend class to QML.
+// Omasharp bridge: exposes the app's Backend class to QML.
 // Values cross the boundary as JSON in both transports (in-process C ABI and
 // stdio JSON lines), so Backend.cs is the same for window apps and panels.
 using System.ComponentModel;

@@ -45,7 +45,7 @@
 
 ## The build checks the backend
 
-Every warning fails the build, so a mistake shows up as a build error with its fix, not as a wrong value in QML. Besides .NET's own rules (CA…, and IL2xxx/IL3xxx for native AOT, on every build), omasharp's analyzers check `Backend` against what QML can do:
+Every warning fails the build, so a mistake shows up as a build error with its fix, not as a wrong value in QML. Besides .NET's own rules (CA…, and IL2xxx/IL3xxx for native AOT, on every build), Omasharp's analyzers check `Backend` against what QML can do:
 
 | Error | Means |
 |---|---|

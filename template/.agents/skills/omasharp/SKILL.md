@@ -1,6 +1,6 @@
 ---
 name: omasharp
-description: Build, change and check this C# + QML Omarchy app (made with omasharp's omarchy-app template). Use for any work in this app - Backend.cs, Main.qml, plugin/Panel.qml, tests, how it looks, building, checking that it works without touching the user's screen, installing it, or updating its bridge.
+description: Build, change and check this C# + QML Omarchy app (made with Omasharp's omarchy-app template). Use for any work in this app - Backend.cs, Main.qml, plugin/Panel.qml, tests, how it looks, building, checking that it works without touching the user's screen, installing it, or updating its bridge.
 ---
 
 # A C# + QML app on Omarchy
@@ -52,7 +52,7 @@ Everything public on `Backend`, with the first letter lowercased:
 - **Bindings update only when C# says so.** Use `Set(ref _field, value)` in setters. For computed properties, call `Notify(nameof(Label))` whenever an input changes. Lists: assign a new list with `Set`, or call `Notify(nameof(Items))` after changing it in place.
 - Backend code runs on the UI thread; `Notify`/`Set` from any other thread is safe.
 - `Delete()`, `New()`, names starting with `_` and a few others can't be used from QML; the build says so.
-- **Every warning fails the build**, including omasharp's checks of `Backend` (OMASHARP001…): each message says the fix. Don't make `Backend`'s public members `static` (QML only sees instance members). The rules, `IDisposable` and turning a rule off for one member: [references/backend.md](references/backend.md#the-build-checks-the-backend).
+- **Every warning fails the build**, including Omasharp's checks of `Backend` (OMASHARP001…): each message says the fix. Don't make `Backend`'s public members `static` (QML only sees instance members). The rules, `IDisposable` and turning a rule off for one member: [references/backend.md](references/backend.md#the-build-checks-the-backend).
 
 ## More, when the task needs it
 
