@@ -41,7 +41,7 @@ Threading: C# runs on Qt's main thread. A notification raised on another thread 
 Async methods: a `Task`/`Task<T>` result makes the host return a JS Promise. C# calls `resolve(id, value)` when the task completes.
 
 `DrawView` (`host/drawview.cpp`) turns a `Drawing` buffer into scene-graph nodes:
-- all rectangles, outlines and hatching go into one vertex-colored geometry (one draw call);
+- all rectangles, outlines, hatching, lines and areas go into one vertex-colored geometry (one draw call); lines are a quad per segment with mitred corners, bevelled when sharper than 60°;
 - text becomes native text nodes, grouped by color, with a layout cache.
 
 `view: [scale, x, y]` maps the drawing's view to the current one with a transform, so zoom and pan don't redraw anything until C# sends a fresh drawing.

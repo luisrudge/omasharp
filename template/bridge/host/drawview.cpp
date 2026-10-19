@@ -1,8 +1,8 @@
 // DrawView: native drawing for window apps. C# builds a Drawing (rectangles, outlines,
-// hatching, text) and sends it as one packed buffer with Bridge.Show(name, drawing). Any
-// `DrawView { source: name }` in QML shows it, built straight into Qt Quick's scene graph:
-// all shapes in one vertex-coloured geometry (one draw call; one image under Qt's software
-// renderer), text as native text nodes.
+// hatching, lines, areas, text) and sends it as one packed buffer with Bridge.Show(name,
+// drawing). Any `DrawView { source: name }` in QML shows it, built straight into Qt Quick's
+// scene graph: all shapes in one vertex-coloured geometry (one draw call; one image under Qt's
+// software renderer), text as native text nodes.
 // No JSON, no JavaScript, no full-window image. `view: [scale, x, y]` moves and zooms what
 // is already built (a transform), so panning and zooming cost nothing until C# sends a
 // fresh drawing.
@@ -126,9 +126,86 @@ void hatch(std::vector<QSGGeometry::ColoredPoint2D> &t, float x, float y, float 
     }
 }
 
+void triangle(std::vector<QSGGeometry::ColoredPoint2D> &t, QPointF a, QPointF b, QPointF c, quint32 argb) {
+    t.push_back(vertex(a.x(), a.y(), argb));
+    t.push_back(vertex(b.x(), b.y(), argb));
+    t.push_back(vertex(c.x(), c.y(), argb));
+}
+
+// Lines `width` thick through the points, one quad per segment. At a corner the two quads share
+// mitred corner points (no gap, no overlap); a corner sharper than 60° would make a long spike,
+// so there each quad ends square and a triangle fills the outside of the corner (a bevel).
+void polyline(std::vector<QSGGeometry::ColoredPoint2D> &t, const std::vector<QPointF> &p, float width, quint32 argb) {
+    if (p.size() < 2 || !(width > 0) || !std::isfinite(width)) return;
+    const qreal hw = width / 2;
+    std::vector<QPointF> dir; // unit direction of each segment
+    dir.reserve(p.size() - 1);
+    for (size_t i = 0; i + 1 < p.size(); i++) {
+        const QPointF d = p[i + 1] - p[i];
+        const qreal len = std::hypot(d.x(), d.y());
+        dir.push_back(len > 0 ? d / len : QPointF());
+    }
+    const auto normal = [](QPointF d) { return QPointF(-d.y(), d.x()); };
+    QPointF left = p[0] + normal(dir[0]) * hw, right = p[0] - normal(dir[0]) * hw; // the current segment's start
+    for (size_t i = 0; i < dir.size(); i++) {
+        const QPointF n = normal(dir[i]);
+        QPointF endLeft = p[i + 1] + n * hw, endRight = p[i + 1] - n * hw, nextLeft, nextRight;
+        if (i + 1 < dir.size()) {
+            const QPointF m = n + normal(dir[i + 1]);
+            const qreal mlen = std::hypot(m.x(), m.y());
+            const qreal cosHalf = mlen / 2; // cos of half the turn: the mitre is hw / cosHalf long
+            if (cosHalf >= 0.5) {
+                endLeft = nextLeft = p[i + 1] + m / mlen * (hw / cosHalf);
+                endRight = nextRight = p[i + 1] - m / mlen * (hw / cosHalf);
+            } else {
+                const QPointF n2 = normal(dir[i + 1]);
+                nextLeft = p[i + 1] + n2 * hw;
+                nextRight = p[i + 1] - n2 * hw;
+                // The outside of the turn: right when it turns left, and the other way round.
+                const qreal turn = dir[i].x() * dir[i + 1].y() - dir[i].y() * dir[i + 1].x();
+                if (turn > 0)
+                    triangle(t, p[i + 1], endRight, nextRight, argb);
+                else if (turn < 0)
+                    triangle(t, p[i + 1], endLeft, nextLeft, argb);
+            }
+        }
+        quad(t, left, endLeft, endRight, right, argb);
+        left = nextLeft;
+        right = nextRight;
+    }
+}
+
+// The area between the line through the points and the level `base`: a trapezoid per segment,
+// split where the line crosses the base (a crossed quad would fill the wrong triangles).
+void area(std::vector<QSGGeometry::ColoredPoint2D> &t, const std::vector<QPointF> &p, float base, quint32 argb) {
+    if (!std::isfinite(base)) return;
+    for (size_t i = 0; i + 1 < p.size(); i++) {
+        const QPointF a = p[i], b = p[i + 1];
+        const qreal da = a.y() - base, db = b.y() - base;
+        if ((da < 0 && db > 0) || (da > 0 && db < 0)) {
+            const QPointF cross(a.x() + (b.x() - a.x()) * da / (da - db), base);
+            triangle(t, a, cross, {a.x(), base}, argb);
+            triangle(t, cross, b, {b.x(), base}, argb);
+        } else
+            quad(t, a, b, {b.x(), base}, {a.x(), base}, argb);
+    }
+}
+
 // The buffer Drawing.cs writes (little-endian): "ODL1", double scale, x, y, int32 count, ops.
 struct Reader {
     const uchar *p, *end;
+    // n (int32), then n float pairs: the points of a Polyline or Area. Points that aren't finite,
+    // and repeats of the point before, are dropped. False when the buffer is too short.
+    bool points(std::vector<QPointF> &out) {
+        const qint32 n = get<qint32>();
+        if (n < 0 || n > (end - p) / 8) return false;
+        out.clear();
+        for (int i = 0; i < n; i++) {
+            const float x = get<float>(), y = get<float>();
+            if (std::isfinite(x) && std::isfinite(y) && (out.empty() || out.back() != QPointF(x, y))) out.emplace_back(x, y);
+        }
+        return true;
+    }
     template <class T>
     T get() {
         T v{};
@@ -151,6 +228,7 @@ std::shared_ptr<const Scene> parse(const uchar *data, int len) {
     scene->originY = r.get<double>();
     const int count = r.get<qint32>();
     QHash<quint32, int> groupOf;
+    std::vector<QPointF> points;
     for (int i = 0; i < count && r.p < r.end; i++) {
         const uchar op = r.get<uchar>();
         if (op == 1) { // Rect
@@ -192,6 +270,16 @@ std::shared_ptr<const Scene> parse(const uchar *data, int len) {
             }
             const QPointF topLeft(x, y - (f.metrics.ascent() + f.metrics.descent()) / 2);
             scene->texts[*it].items.push_back({topLeft, layoutFor(text, f, px, bold)});
+        } else if (op == 5) { // Polyline (Line is one with two points)
+            const float width = r.get<float>();
+            const quint32 c = r.get<quint32>();
+            if (!r.points(points)) break;
+            polyline(scene->triangles, points, width, c);
+        } else if (op == 6) { // Area, down (or up) to a baseline
+            const float base = r.get<float>();
+            const quint32 c = r.get<quint32>();
+            if (!r.points(points)) break;
+            area(scene->triangles, points, base, c);
         } else
             break; // unknown op: stop rather than misread the rest
     }

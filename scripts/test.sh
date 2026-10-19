@@ -5,9 +5,9 @@
 #   1. the analyzers' unit tests, then pack them and the template (generated apps restore
 #   Omasharp.Analyzers from that local package); 2. a new window app through the skill's check.sh
 #   (unit tests, dev and native AOT builds, each run headless on Qt's offscreen platform, checking
-#   the visible text; --size, --env, empty XDG dirs, DrawView's shapes, the theme name); a new
-#   panel app: build, tests, AOT publish, its stdio protocol; 3. every omasharp rule fails a
-#   generated app's build; 4. bridge update on a fresh app is a no-op; 5. SQLite the way the skill
+#   the visible text; --size, --env, empty XDG dirs, DrawView's shapes, lines and areas, the theme
+#   name); a new panel app: build, tests, AOT publish, its stdio protocol; 3. every omasharp rule
+#   fails a generated app's build; 4. bridge update on a fresh app is a no-op; 5. SQLite the way the skill
 #   says (window app installed and run twice, panel), then -t:Install with the app's own app.desktop
 #   and -t:Uninstall; a release (-t:Package) installed, updated and removed by its install.sh as
 #   users run it; 6. the examples, through check.sh. Warnings fail every build (Omasharp.targets).
@@ -144,6 +144,73 @@ echo "red: $red% of the DrawView"
 peak=$(sed -n 's/.*peak MB: \([0-9]*\).*/\1/p' "$work/Win/obj/shot.txt")
 echo "peak memory: ${peak:-?} MB"
 [ -n "$peak" ] && [ "$peak" -lt 300 ] || fail "DrawView: the software renderer's image wasn't bounded (peak ${peak:-?} MB)"
+cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
+
+step "Drawing: Line, Polyline and Area, encoded (unit test) and drawn (--offscreen)"
+cp "$work/Win/tests/Tests.cs" "$work/Tests.cs.good"
+cat > "$work/Win/tests/Tests.cs" <<'EOF'
+global using AppBackend = Backend;
+using System.Buffers.Binary;
+using Omasharp;
+
+// The buffer Drawing writes for lines and areas, as host/drawview.cpp reads it.
+var d = new Drawing(2, 10, 20);
+d.Line(0, 1, 2, 3, 1.5, Color.Parse("#ff0000"));
+d.Polyline([(0, 0), (10, 5), (20, 0)], 2, Color.Parse("#8000ff00"));
+d.Area([(0, 10), (10, 0)], 10, Color.Parse("#0000ff"));
+d.Polyline([(0, 0)], 2, Color.Parse("#ff0000"));        // one point: nothing
+d.Polyline([(0, 0), (1, 1)], 0, Color.Parse("#ff0000")); // no width: nothing
+d.Area([(0, 0), (1, 1)], 5, Color.Parse("#00ff0000"));   // transparent: nothing
+var expected = new List<byte>("ODL1"u8.ToArray());
+void D(double v) { var b = new byte[8]; BinaryPrimitives.WriteDoubleLittleEndian(b, v); expected.AddRange(b); }
+void I(int v) { var b = new byte[4]; BinaryPrimitives.WriteInt32LittleEndian(b, v); expected.AddRange(b); }
+void U(uint v) { var b = new byte[4]; BinaryPrimitives.WriteUInt32LittleEndian(b, v); expected.AddRange(b); }
+void F(float v) { var b = new byte[4]; BinaryPrimitives.WriteSingleLittleEndian(b, v); expected.AddRange(b); }
+D(2); D(10); D(20); I(3);
+expected.Add(5); F(1.5f); U(0xFFFF0000); I(2); F(0); F(1); F(2); F(3);
+expected.Add(5); F(2); U(0x8000FF00); I(3); F(0); F(0); F(10); F(5); F(20); F(0);
+expected.Add(6); F(10); U(0xFF0000FF); I(2); F(0); F(10); F(10); F(0);
+var ok = d.Count == 3 && d.ToBytes().AsSpan().SequenceEqual(expected.ToArray());
+Console.WriteLine(ok ? "ok   Line, Polyline and Area encode as host/drawview.cpp reads them" : $"FAIL Drawing encoding: {Convert.ToHexString(d.ToBytes())}");
+return ok ? 0 : 1;
+EOF
+(cd "$work/Win" && dotnet run --project tests) >"$work/drawing-tests.log" 2>&1 || { tail -20 "$work/drawing-tests.log"; fail "Drawing: encoding"; }
+grep -E "^(ok|FAIL)" "$work/drawing-tests.log"
+cp "$work/Tests.cs.good" "$work/Win/tests/Tests.cs"
+# A line over an area (a peak the corner must fill), and a steep spike whose corner must be cut.
+sed -i '/^public class Backend : BackendBase$/{n;a\
+    public string Snapshot => Environment.GetEnvironmentVariable("SNAPSHOT") ?? "";\
+    public void Draw() { var d = new Drawing(); (double X, double Y)[] p = [(0, 80), (70, 20), (140, 80)]; d.Area(p, 100, Color.Parse("#0000ff")); d.Polyline(p, 4, Color.Parse("#ff0000")); d.Polyline([(160, 100), (165, 30), (170, 100)], 4, Color.Parse("#ff0000")); Bridge.Show("chart", d); }
+}' "$work/Win/Backend.cs"
+cat > "$work/Win/Main.qml" <<'EOF'
+import QtQuick
+import Omasharp
+
+Window {
+  visible: true
+  width: 400
+  height: 300
+  Text { y: 120; text: "drawn" }
+  DrawView { id: chart; width: 200; height: 100; source: "chart"; view: [1, 0, 0] }
+  Component.onCompleted: backend.draw()
+  Timer { interval: 300; running: true; onTriggered: chart.grabToImage(r => r.saveToFile(backend.snapshot)) }
+}
+EOF
+(cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "SNAPSHOT=$work/chart.ppm") >"$work/win-chart.log" 2>&1 || { tail -20 "$work/win-chart.log"; fail "DrawView chart app"; }
+# Pixels of the grabbed DrawView (binary PPM), in the drawing's coordinates.
+python3 -I - "$work/chart.ppm" <<'EOF' || fail "DrawView: lines and areas aren't drawn as expected"
+import sys
+d = open(sys.argv[1], "rb").read(); f = d.split(maxsplit=4); w, h = int(f[1]), int(f[2]); px = d[-w * h * 3:]
+def at(x, y):
+    i = (int((y + 0.5) * h / 100) * w + int((x + 0.5) * w / 200)) * 3
+    return {b"\xff\x00\x00": "red", b"\x00\x00\xff": "blue"}.get(px[i:i + 3], "other")
+checks = [((70, 90), "blue", "inside the area"), ((70, 5), "other", "above the area"),
+          ((35, 50), "red", "on the line"), ((70, 18), "red", "the line's mitred corner (no gap)"),
+          ((165, 32), "red", "the spike's corner"), ((165, 25), "other", "above the spike (cut, no spike)")]
+bad = [f"{name} at {xy}: {at(*xy)}, expected {want}" for xy, want, name in checks if at(*xy) != want]
+print("\n".join(bad) if bad else "lines and areas: all %d pixels as expected (%dx%d)" % (len(checks), w, h))
+sys.exit(1 if bad else 0)
+EOF
 cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
 
 step "Theme.Name (C#) and theme.name (QML) read current/theme.name, and follow a switch"
