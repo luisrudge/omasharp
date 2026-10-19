@@ -395,8 +395,13 @@ mkdir -p "$work/oldlibs"; printf '#!/bin/sh\necho "\t%s: version Qt_6.99 not fou
 env HOME="$work/home2" PATH="$work/oldlibs:$PATH" sh "$work/notes/install.sh" >"$work/old.log" 2>&1 && fail "release: installed on libraries that are too old"
 grep -q "Update the system" "$work/old.log" || { cat "$work/old.log"; fail "release: no message for old libraries"; }
 [ ! -e "$work/home2" ] || fail "release: too-old libraries still wrote to HOME"
-# Again (an update), then uninstall: nothing left.
+# Again (an update), then uninstall: nothing left. The update leaves apps called notes.new and notes.old alone.
+for other in notes.new notes.old; do mkdir -p "$h/.local/share/omasharp/$other" && touch "$h/.local/share/omasharp/$other/libnotes.so"; done
 user_install >>"$work/user-install.log" 2>&1 || fail "release: install.sh over an installed copy"
+for other in notes.new notes.old; do
+  [ -f "$h/.local/share/omasharp/$other/libnotes.so" ] || fail "release: installing notes removed the app $other"
+  rm -r "${h:?}/.local/share/omasharp/$other"
+done
 user_install uninstall >>"$work/user-install.log" 2>&1 || fail "release: install.sh uninstall"
 left=$(cd "$h/.local" && find bin share/applications share/icons share/omasharp ! -type d 2>/dev/null || true)
 [ -z "$left" ] || fail "release: uninstall left $left"

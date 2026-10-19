@@ -81,13 +81,15 @@ if [ -n "$missing" ]; then
 fi
 
 # The new copy goes in beside the old one and then takes its place, so a running copy keeps working.
+# The temporary names start with a dot, which no app id does, so they're never another app's folder.
 mkdir -p "$data/omasharp" "$data/applications" "$(dirname "$bin")"
-rm -rf "$lib.new" "$lib.old"
-cp -R "$from/app" "$lib.new"
-chmod 755 "$lib.new/$id"
-[ ! -e "$lib" ] || mv "$lib" "$lib.old"
-mv "$lib.new" "$lib"
-rm -rf "$lib.old"
+new=$data/omasharp/.$id.new old=$data/omasharp/.$id.old
+rm -rf "$new" "$old"
+cp -R "$from/app" "$new"
+chmod 755 "$new/$id"
+[ ! -e "$lib" ] || mv "$lib" "$old"
+mv "$new" "$lib"
+rm -rf "$old"
 ln -sfn "$lib/$id" "$bin"
 for ext in svg png; do
   rm -f "$icons/scalable/apps/$id.$ext"
