@@ -64,6 +64,8 @@ cp "$work/Main.qml.good" "$work/Win/Main.qml"
 
 step "panel app: build, tests, AOT publish, stdio protocol"
 new -n Pan --kind panel
+# Names that are Visual Basic keywords build: the app is C# only (CA1716 is off in .editorconfig).
+printf '%s\n' 'public record Step(int Index);' 'public interface ICursor { void Next(); }' > "$work/Pan/Keywords.cs"
 (cd "$work/Pan" && dotnet build -v quiet -nologo && dotnet run --project tests && dotnet publish -v quiet -nologo) >"$work/pan.log" 2>&1 || { tail -30 "$work/pan.log"; fail "panel app"; }
 grep -E "warning IL[0-9]+" "$work/pan.log" && fail "panel app: AOT warnings"
 [ -s "$work/Pan/plugin/Backend.qml" ] || fail "panel app: no generated Backend.qml"
