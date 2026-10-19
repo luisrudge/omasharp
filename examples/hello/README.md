@@ -5,7 +5,7 @@ One `Backend.cs` used two ways. On the left it's a window app, compiled with nat
 ![hello as a window app and as a panel](screenshot.png)
 
 ```sh
-dotnet watch                                                               # the window app, with live QML and C# edits
+dotnet run                                                                 # opens the window app
 sh ../../template/.agents/skills/omasharp/scripts/check.sh                 # checks the window app off-screen
 OmarchyKind=panel sh ../../template/.agents/skills/omasharp/scripts/check.sh   # checks the panel
 dotnet publish -p:OmarchyKind=panel -t:Install                             # installs the panel

@@ -51,7 +51,7 @@
   "postActions": [
     {
       "description": "Next steps.",
-      "manualInstructions": [ { "text": "Next: cd into the new folder and run `dotnet watch`. Coding agents get the omasharp skill (.agents/skills/omasharp)." } ],
+      "manualInstructions": [ { "text": "Next: cd into the new folder and run `dotnet run` to see the app. Coding agents get the omasharp skill (.agents/skills/omasharp)." } ],
       "actionId": "AC1156F7-BB77-4DB8-B28F-24EEBCCA1E5C",
       "continueOnError": true
     }

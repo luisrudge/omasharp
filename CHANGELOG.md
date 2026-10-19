@@ -2,6 +2,18 @@
 
 One section per `bridge/VERSION`. Apps update with `dotnet build -t:UpdateBridge`; entries marked **ABI** change the C ABI (`bridge/host/omasharp.h` ⟷ `bridge/cs/Native.cs`), so an app that customized either file must merge both before it runs again.
 
+## 0.1.5
+
+`dotnet watch` is no longer supported: no C# hot reload and no QML live reload. Apps are built by agents, which edit and run `check.sh`; reloading was code their loop never used, and it made dev mode differ from release. Dev mode itself stays (a Debug build on JIT, QML from the project folder, no `.rcc`): `check.sh` uses it by default, and `dotnet run` opens the app with it, without reloading.
+
+- **ABI** (`OMASHARP_ABI` 3 → 4): `omasharp_host` loses `method` (a method appeared on Backend), and `HostApi` in `Native.cs` loses `Method`. The host makes `backend`'s methods once at start and always freezes the property map, in dev mode too.
+- `Dev.cs` keeps the managed `Main` and drops the `MetadataUpdateHandler`; `Native.cs` drops `Reload()`, and `Model.cs` drops `Detach()` and `NotifyAll()`, which only it used.
+- The window host no longer watches QML files (`watchQml` in `host/devhost.cpp`), and the panel harness (`shell/dev-shell.qml`) no longer reloads when `plugin/` changes, so it no longer needs `inotifywait`.
+- `Omasharp.targets` drops `StartupHookSupport`, which only hot reload needed, and the `Watch="false"` item for QML.
+- The template's next-steps message, the README, the skill (`SKILL.md`, `references/build.md`) and `docs/architecture.md` say `dotnet run` (to look at the app) and `check.sh` (for agents) instead of `dotnet watch`.
+
+`UpdateBridge` brings in the bridge and skill changes. This is an ABI change: the host and the C# side must both come from 0.1.5, or the host refuses to start the app. An app that customized `host/omasharp.h` or `cs/Native.cs` removes the `method`/`Method` field from both (keeping the two struct orders identical) and bumps `OMASHARP_ABI`/`Abi` to 4 in both. One that customized `host/main.cpp` removes `onMethod`, `addMethod` and the static `makeMethod`/`self`, makes the methods once in `omasharp_host_run`, calls `map.freeze()` unconditionally and drops the `watchQml` declaration and call. One that customized `host/devhost.cpp` removes `watchQml` and `qmlFiles`. Customized `Dev.cs`, `Omasharp.targets` or `shell/dev-shell.qml` merge their `.upstream` files.
+
 ## 0.1.4
 
 Window apps can be shared with one command, no sudo and no .NET:

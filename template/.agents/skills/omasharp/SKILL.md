@@ -34,7 +34,7 @@ Setup, once per machine: the .NET SDK 10 (`omarchy pkg add dotnet-sdk`). qmake6 
 4. Finish with **`sh .agents/skills/omasharp/scripts/check.sh --release`**: the same check on the release (native AOT) build. It fails on IL2xxx/IL3xxx warnings and must show the same values.
 5. Install only if the user asked: `dotnet publish -t:Install`. Publishing a release for other people (window apps: one `curl … | sh`, no sudo) also only when asked: [references/build.md](references/build.md#sharing-a-window-app).
 
-**Don't run `dotnet run` or `dotnet watch` yourself**: they open the app on the user's screen and never return. They're the human's dev loop.
+**Don't run `dotnet run` (or `dotnet watch`) yourself**: they open the app on the user's screen and never return. `dotnet run` is for the human who wants to see the app.
 
 ## What QML can see
 
@@ -64,4 +64,4 @@ Everything public on `Backend`, with the first letter lowercased:
 | [references/panels.md](references/panels.md) | panels: lifetime, `keepLoaded`, keyboard, opening one, what isn't supported |
 | [references/drawing.md](references/drawing.md) | charts, maps, treemaps: `Drawing` + `DrawView` instead of `Canvas` |
 | [references/sqlite.md](references/sqlite.md) | storing data: SQLite (the system's, nothing to ship), where the database goes, AOT-safe queries |
-| [references/build.md](references/build.md) | the human's dev loop, build/install/uninstall, sharing a window app (releases, `install.sh`), the app_id, extending and updating `bridge/`, troubleshooting |
+| [references/build.md](references/build.md) | running the app (for the human), build/install/uninstall, sharing a window app (releases, `install.sh`), the app_id, extending and updating `bridge/`, troubleshooting |

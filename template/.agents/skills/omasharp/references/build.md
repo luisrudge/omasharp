@@ -1,16 +1,15 @@
-# Dev loop, build, install, the bridge
+# Running the app, build, install, the bridge
 
-## Dev loop (for the human)
+## Running the app (for the human)
 
 ```sh
-dotnet watch        # run the app; rebuilds and reloads as you save
+dotnet run          # a dev build, opened on the screen; edit, close it, run it again
 ```
 
-- **QML edits** (window apps) reload the window about 0.15 s after you save. The window is recreated, so UI-only state (scroll position, text being typed) resets; backend state stays.
-- **C# edits** (window apps) hot-reload into the running app in about 1.5 s: method bodies, and new properties and methods too (QML sees new members after its next reload). Edits hot reload can't apply (a field's type, a base class) restart the app, which takes about 3 s.
-- In dev mode the C# side runs on the normal .NET runtime (JIT), so the fast loop and the debugger work. Release builds are native AOT. Check the release build now and then, since some code is fine on JIT but not under AOT ([backend.md](backend.md)).
+- It runs the dev build, the same one `check.sh` checks: the C# side on the normal .NET runtime (JIT), so builds are fast and the debugger works, and the QML straight from the project folder. Release builds are native AOT. Check the release build now and then (`check.sh --release`), since some code is fine on JIT but not under AOT ([backend.md](backend.md)).
 - Errors from QML and from C# go to the terminal.
-- **Panels:** `dotnet watch` opens the panel in its own Quickshell process with the shell's theme, not inside `omarchy-shell`, so a broken panel can't hurt the desktop shell. QML edits reload it at once (this restarts the backend, so its state resets). C# edits restart it, about 3 s. Closing the panel ends the run. Set `OMASHARP_PANEL_PAYLOAD='{"screen":"<monitor>"}'` to choose the monitor.
+- Nothing reloads while it runs: close the app and run it again to see an edit.
+- **Panels:** `dotnet run` opens the panel in its own Quickshell process with the shell's theme, not inside `omarchy-shell`, so a broken panel can't hurt the desktop shell. Closing the panel ends the run. Set `OMASHARP_PANEL_PAYLOAD='{"screen":"<monitor>"}'` to choose the monitor.
 
 ## Build, install, uninstall
 
@@ -41,7 +40,7 @@ dotnet publish -t:Package       # window: a release in artifacts/: <appid>-linux
   ```
   Package (and so Install) checks it with `desktop-file-validate` (when it's installed) and fails on an invalid entry. Installing refreshes the launcher's caches. Uninstall removes all of it.
 - Window apps: the host (`<appid>`) is the same for every app. It's built once per machine (qmake + g++, about 7 s) and cached in `~/.cache/omasharp/`.
-- A release build takes about 5 s (mostly the native AOT compiler); a QML-only change about 1.5 s. `dotnet watch` applies C# changes in about 1.5 s.
+- A release build takes about 5 s (mostly the native AOT compiler); a QML-only change about 1.5 s. A dev build is faster, which is why `check.sh` uses it by default.
 - **The app_id** is `AppId` in the csproj (`dotnet new omarchy-app -n Tally --app-id tally-app` sets it; the default is the name in lowercase). Window rules match on it: the app floats if the user adds a rule such as `o.window("<appid>", { float = true })` in `~/.config/hypr/`. Don't change the user's Hyprland config without asking.
 
 ## Sharing a window app

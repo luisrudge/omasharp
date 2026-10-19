@@ -69,12 +69,12 @@ A crash in the backend ends that process only: the panel shows `lastError` and c
 
 ## Dev mode
 
-`dotnet watch` (Debug) runs the same host with `--dev App.dll --qml-dir <project>`:
-- The host starts the normal .NET runtime through hostfxr, with `hostfxr_initialize_for_dotnet_command_line` + `hostfxr_run_app`. That way the app's managed `Main` (`Dev.cs`) runs, which is what makes `dotnet watch` hot reload work (its agent is a startup hook).
+A Debug build is dev mode: no native AOT compile and no `.rcc`, so it builds fast. `check.sh` uses it by default, and `dotnet run` opens it. The same host runs with `--dev App.dll --qml-dir <project>`:
+- The host starts the normal .NET runtime through hostfxr, with `hostfxr_initialize_for_dotnet_command_line` + `hostfxr_run_app`, so the app's managed `Main` (`Dev.cs`) runs as in `dotnet App.dll`.
 - `Main` calls back into the host's exported `omasharp_host_run`, and Qt runs on the main thread as in release.
-- Hot reload calls the bridge's `MetadataUpdateHandler`: the bridge reflects again (new properties and methods appear) and resends every value.
-- QML files are watched; on save, the window is recreated from fresh components (~0.13 s).
-- Panels in dev mode run in their own Quickshell process (`bridge/shell/dev-shell.qml`, with the shell's `qs.Commons`/`qs.Ui`), never inside omarchy-shell. C# edits restart that harness (~3 s): hot reload can't follow a child process that QML reloads respawn.
+- QML loads from the project folder instead of a `.rcc`.
+- Nothing reloads while the app runs; the backend's members are fixed at start, as in release.
+- Panels in dev mode run in their own Quickshell process (`bridge/shell/dev-shell.qml`, with the shell's `qs.Commons`/`qs.Ui`), never inside omarchy-shell, with the backend on JIT.
 
 ## Checks: the skill's `check.sh` (`.agents/skills/omasharp/scripts/`)
 
