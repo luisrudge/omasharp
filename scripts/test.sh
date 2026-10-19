@@ -5,9 +5,10 @@
 #   1. the analyzers' unit tests, then pack them and the template (generated apps restore
 #   Omasharp.Analyzers from that local package); 2. a new window app through the skill's check.sh
 #   (unit tests, dev and native AOT builds, each run headless on Qt's offscreen platform, checking
-#   the visible text); a new panel app: build, tests, AOT publish, its stdio protocol; 3. every
-#   omasharp rule fails a generated app's build; 4. bridge update on a fresh app is a no-op;
-#   5. SQLite the way the skill says (window app installed and run twice, panel); 6. the examples,
+#   the visible text; --env, DrawView's shapes, the theme name); a new panel app: build, tests, AOT
+#   publish, its stdio protocol; 3. every omasharp rule fails a generated app's build; 4. bridge
+#   update on a fresh app is a no-op; 5. SQLite the way the skill says (window app installed and run
+#   twice, panel), then -t:Install with the app's own app.desktop and -t:Uninstall; 6. the examples,
 #   through check.sh. Warnings fail every build (Omasharp.targets).
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
