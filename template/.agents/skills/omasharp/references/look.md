@@ -13,6 +13,7 @@
     onActiveFocusChanged: if (activeFocus) selectAll()
   }
   ```
+- `grabToImage` (an app saving a picture of itself) leaves out the window's color: grabbing the root gives a PNG that's transparent where the window shows `theme.background`. Grab an item filled with a `Rectangle { anchors.fill: parent; color: theme.background }` instead.
 
 ## Theme colors in C#
 
