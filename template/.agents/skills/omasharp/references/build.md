@@ -17,12 +17,14 @@ dotnet watch        # run the app; rebuilds and reloads as you save
 ```sh
 dotnet publish                  # window: bin/Release/net10.0/linux-x64/publish/{<appid>, lib<appid>.so, <appid>.rcc}
                                 # panel:  plugin/bin/<Name> + plugin/Backend.qml
-dotnet publish -t:Install       # window: ~/.local/share/omasharp/<appid>/, ~/.local/bin/<appid>, a .desktop entry (app.desktop, icon.svg/icon.png if present)
+dotnet publish -t:Install       # window: ~/.local/share/omasharp/<appid>/, ~/.local/bin/<appid>, a .desktop entry (app.desktop, icon.svg/icon.png if present),
+                                #         through the same install.sh users run (see "Sharing a window app")
                                 # panel:  copies plugin/ to ~/.config/omarchy/plugins/<appid>/ and enables it
 dotnet build -t:Uninstall
+dotnet publish -t:Package       # window: a release in artifacts/: <appid>-linux-x64.tar.gz, SHA256SUMS, install.sh
 ```
 
-- **The launcher entry** (window apps): Install writes a minimal `.desktop` entry. For more (a comment, categories, keywords, opening files with `%f`, actions), put your own `app.desktop` next to the csproj and Install uses it instead. Write `@EXEC@` where the installed binary goes. Install sets `StartupWMClass`, and `Icon` when the app has `icon.svg` or `icon.png`:
+- **The launcher entry** (window apps): Install (and a release) writes a minimal `.desktop` entry. For more (a comment, categories, keywords, opening files with `%f`, actions), put your own `app.desktop` next to the csproj and Install uses it instead. Write `@EXEC@` where the installed binary goes. Install sets `StartupWMClass`, and `Icon` when the app has `icon.svg` or `icon.png`:
   ```ini
   [Desktop Entry]
   Type=Application
@@ -37,10 +39,33 @@ dotnet build -t:Uninstall
   Name=Start from zero
   Exec=@EXEC@ --reset
   ```
-  Install checks it with `desktop-file-validate` (when it's installed) and fails on an invalid entry. It also refreshes the launcher's caches. Uninstall removes all of it.
+  Package (and so Install) checks it with `desktop-file-validate` (when it's installed) and fails on an invalid entry. Installing refreshes the launcher's caches. Uninstall removes all of it.
 - Window apps: the host (`<appid>`) is the same for every app. It's built once per machine (qmake + g++, about 7 s) and cached in `~/.cache/omasharp/`.
 - A release build takes about 5 s (mostly the native AOT compiler); a QML-only change about 1.5 s. `dotnet watch` applies C# changes in about 1.5 s.
 - **The app_id** is `AppId` in the csproj (`dotnet new omarchy-app -n Tally --app-id tally-app` sets it; the default is the name in lowercase). Window rules match on it: the app floats if the user adds a rule such as `o.window("<appid>", { float = true })` in `~/.config/hypr/`. Don't change the user's Hyprland config without asking.
+
+## Sharing a window app
+
+People install a window app with one command: no sudo, no .NET (the app is native code on the Qt Omarchy ships), nothing outside their home folder. It's how many Omarchy apps outside Omarchy's own package repository ship, and it works the same on Omarchy's stable, rc and edge channels.
+
+```sh
+curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | sh              # install, or update
+curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | sh -s uninstall # remove
+```
+
+To publish a release (when the user asks; it's public):
+1. The app is a GitHub repo, with `.github/workflows/release.yml` from the template.
+2. Set `<Version>` in the csproj, commit, then push a tag that matches it: `git tag v0.2.0 && git push origin v0.2.0`.
+3. The workflow runs the unit tests, builds with `dotnet publish -t:Package` and attaches its files to a GitHub release. A tag with a suffix (`v0.2.0-rc.1`) makes a pre-release, which `releases/latest` skips.
+
+Put the two commands in the app's README.
+
+- **Built on Omarchy's stable packages.** The workflow takes its toolchain from Omarchy's stable mirror, not Arch's: the host needs the Qt it was built with or newer, so a build on the newest Arch Qt wouldn't start on Omarchy stable until it caught up. Don't change that to `archlinux:latest`'s own packages.
+- **What `install.sh` does:** it downloads `<appid>-linux-x64.tar.gz` and `SHA256SUMS` from the release and checks one against the other before unpacking. It checks with `ldd` that the system has every library the app needs, at least as new as the ones it was built with; if not, it says to update the system and installs nothing. Then it puts the app where `-t:Install` does: the new copy goes in next to the old one and then takes its place, so a copy that's running keeps working. `OMASHARP_RELEASE=v0.1.0` installs that release instead of the latest; `OMASHARP_RELEASE_URL=<url>` downloads from another place with the same files (`file://` works, for testing). In an unpacked tarball, `sh install.sh` installs that copy.
+- `-t:Install` runs the same `install.sh` on the same files (`obj/omasharp/release/<appid>/`), so what a developer installs is what users get.
+- `-t:Package` writes the repo into `install.sh`: `AppRepository` in the csproj (`owner/repo`), which GitHub Actions fills in. Without it, that `install.sh` only installs from an unpacked tarball.
+- Releases are x86_64 only (`RuntimeIdentifier` is `linux-x64`). Panels have no release: `-t:Package` is for window apps.
+- Omarchy's own repository (`omarchy pkg add <name>`) takes apps through a PKGBUILD in [omacom/omarchy-pkgs](https://github.com/omacom/omarchy-pkgs). It can repackage the same tarball.
 
 ## The bridge: extending and updating it
 
