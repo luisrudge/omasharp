@@ -303,15 +303,15 @@ private:
             y1 = std::max(y1, v.y);
         }
         const QRectF area(std::floor(x0), std::floor(y0), std::ceil(x1) - std::floor(x0), std::ceil(y1) - std::floor(y0));
-        // At most 4096 x 4096 pixels (64 MB): shapes spread far apart are drawn at a lower
+        // At most 4096 pixels each way (64 MB): shapes spread far apart are drawn at a lower
         // resolution rather than in a huge image.
-        const qreal maxPixels = 4096.0 * 4096.0;
-        const qreal dpr = qMin(window()->effectiveDevicePixelRatio(), std::sqrt(maxPixels / qMax(1.0, area.width() * area.height())));
-        QImage image(QSize(qMax(1, qCeil(area.width() * dpr)), qMax(1, qCeil(area.height() * dpr))), QImage::Format_ARGB32_Premultiplied);
+        const qreal dpr = window()->effectiveDevicePixelRatio(), maxSide = 4096;
+        const qreal sx = qMin(dpr, maxSide / qMax(1.0, area.width())), sy = qMin(dpr, maxSide / qMax(1.0, area.height()));
+        QImage image(QSize(qBound(1, qCeil(area.width() * sx), int(maxSide)), qBound(1, qCeil(area.height() * sy), int(maxSide))), QImage::Format_ARGB32_Premultiplied);
         if (image.isNull()) return new QSGNode; // out of memory: no shapes rather than a crash
         image.fill(Qt::transparent);
         QPainter painter(&image);
-        painter.scale(dpr, dpr);
+        painter.scale(sx, sy);
         painter.translate(-area.topLeft());
         painter.setPen(Qt::NoPen);
         for (size_t i = 0; i + 2 < scene.triangles.size(); i += 3) {

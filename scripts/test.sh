@@ -73,7 +73,9 @@ cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$wo
 step "DrawView draws its shapes under Qt's software renderer (--offscreen)"
 sed -i '/^public class Backend : BackendBase$/{n;a\
     public string Snapshot => Environment.GetEnvironmentVariable("SNAPSHOT") ?? "";\
-    public void Draw() { var d = new Drawing(1, 0, 0); d.Rect(0, 0, 200, 100, Color.Parse("#ff0000")); d.Rect(40000, 40000, 1, 1, Color.Parse("#00ff00")); Bridge.Show("box", d); }
+    public void Draw() { var d = new Drawing(1, 0, 0); d.Rect(0, 0, 200, 100, Color.Parse("#ff0000")); d.Rect(40000, 40000, 1, 1, Color.Parse("#00ff00")); Bridge.Show("box", d); }\
+    public void DrawLine() { var d = new Drawing(1, 0, 0); d.Rect(0, 0, 1, 1, Color.Parse("#ff0000")); d.Rect(2e8, 0, 1, 1, Color.Parse("#ff0000")); Bridge.Show("line", d); }\
+    public long PeakMb() => long.Parse(File.ReadLines("/proc/self/status").First(l => l.StartsWith("VmHWM:", StringComparison.Ordinal)).Split(" ", StringSplitOptions.RemoveEmptyEntries)[1]) / 1024;
 }' "$work/Win/Backend.cs"
 cat > "$work/Win/Main.qml" <<'EOF'
 import QtQuick
@@ -85,8 +87,10 @@ Window {
   height: 300
   Text { text: "drawn" }
   DrawView { id: box; width: 200; height: 100; source: "box"; view: [1, 0, 0] }
-  Component.onCompleted: backend.draw()
-  Timer { interval: 300; running: true; onTriggered: box.grabToImage(r => r.saveToFile(backend.snapshot)) }
+  DrawView { y: 120; width: 200; height: 10; source: "line"; view: [1, 0, 0] }
+  Text { id: peak; y: 140 }
+  Component.onCompleted: { backend.draw(); backend.drawLine() }
+  Timer { interval: 300; running: true; onTriggered: box.grabToImage(r => { r.saveToFile(backend.snapshot); peak.text = "peak MB: " + backend.peakMb() }) }
 }
 EOF
 (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "SNAPSHOT=$work/box.ppm") >"$work/win-draw.log" 2>&1 || { tail -20 "$work/win-draw.log"; fail "DrawView app"; }
@@ -96,6 +100,11 @@ red=$(python3 -I -c 'import sys; d = open(sys.argv[1], "rb").read(); f = d.split
 print(sum(px[i:i + 3] == b"\xff\x00\x00" for i in range(0, n * 3, 3)) * 100 // n)' "$work/box.ppm" 2>/dev/null || echo 0)
 echo "red: $red% of the DrawView"
 [ "$red" -ge 90 ] || fail "DrawView: the software renderer drew no shapes"
+# A long, thin drawing (2e8 x 1, a 230 MB image without a cap on each side) stays bounded too:
+# the app's peak memory after drawing both.
+peak=$(sed -n 's/.*peak MB: \([0-9]*\).*/\1/p' "$work/Win/obj/shot.txt")
+echo "peak memory: ${peak:-?} MB"
+[ -n "$peak" ] && [ "$peak" -lt 300 ] || fail "DrawView: the software renderer's image wasn't bounded (peak ${peak:-?} MB)"
 cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
 
 step "Theme.Name (C#) and theme.name (QML) read current/theme.name, and follow a switch"
