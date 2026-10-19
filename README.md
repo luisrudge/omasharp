@@ -56,6 +56,33 @@ Building needs the SDK plus qmake6, g++ and Qt 6, which Omarchy ships. A publish
 
 To try a version that isn't released yet, build the template from source ([CONTRIBUTING.md](https://github.com/luisrudge/omasharp/blob/main/CONTRIBUTING.md#try-your-changes)).
 
+## With an agent
+
+Give your agent this repo and say what you want:
+
+```sh
+omarchy agent prompt "Build me a pomodoro timer for Omarchy with https://github.com/luisrudge/omasharp"
+```
+
+The agent offers to install a `create-omasharp-app` skill. Once it's installed, you don't need the link: "build me an Omarchy app that …" is enough.
+
+<details>
+<summary>Instructions for agents</summary>
+
+1. **Get the skill.** Download https://raw.githubusercontent.com/luisrudge/omasharp/main/skills/create-omasharp-app/SKILL.md. It's the `SKILL.md` of a skill named `create-omasharp-app`, with the steps for building the user's app.
+2. **Offer to install it for the user's agents.** Ask first, and say what it's for: next time, "build me an Omarchy app" works without this link. If they say no, go to step 3.
+   - **Where to put it.** Work out the user-level skills folder of each coding agent on this machine. Don't rely on a list from memory: agents move these folders between versions, so check what's actually here.
+     - Which agents are installed: their commands on the PATH (`claude`, `codex`, `pi`, `opencode`, `gemini`, …). On Omarchy, `omarchy default agent` prints the one the user picked.
+     - Where each reads skills from: the agent's own docs or `--help` for its current version. A skills folder in the home directory that already holds skills is good evidence too; Omarchy, for one, links its own `omarchy` skill into the folder of each agent it sets up.
+     - One folder per agent. Many agents also read the shared `~/.agents/skills`; if an agent reads both that and its own folder, the shared one is enough (both can make it see the skill twice).
+     - If you can't tell for some agent, leave it out and say so.
+   - **Confirm the list with the user** before writing anything: each folder, and which agent reads it. They may want fewer.
+   - **Install.** Save the file as `<folder>/create-omasharp-app/SKILL.md` in the first folder (`~/.agents/skills` if it's on the list), and link it into every other confirmed folder: `ln -sfn <that copy's folder> <folder>/create-omasharp-app`. If a different `create-omasharp-app` is already there, ask before replacing it.
+   - **Tell the user what you installed.** Some agents only pick up a new skill in a new session.
+3. **Build what the user asked for** by following the skill's steps, whether or not they installed it.
+
+</details>
+
 ## What you get
 
 - **QML sees your C# class.** Public properties and methods show up in QML as `backend.*`, and bindings update when the values change. Async methods return Promises. Records and lists arrive as JS objects, and C# can send events to QML. Changing state from a background thread is safe. [How it works](https://github.com/luisrudge/omasharp/blob/main/docs/architecture.md).
@@ -75,6 +102,7 @@ One `Backend.cs` works as a window app (left) and as a panel (right):
 | Path | What's in it |
 |---|---|
 | `template/` | The `omarchy-app` template, exactly what a new app gets. That includes `bridge/` (the C# side, the C++ host and the build targets) and the agent skill in `.agents/skills/omasharp/`. |
+| `skills/` | `create-omasharp-app`, the skill agents install once to start new apps ([With an agent](https://github.com/luisrudge/omasharp#with-an-agent)). |
 | `analyzers/` | `Omasharp.Analyzers`, the build-time checks every app gets ([rules](https://github.com/luisrudge/omasharp/blob/main/analyzers/README.md)). |
 | `pack/` | Builds the `Omasharp.Templates` package. |
 | `examples/` | [hello](https://github.com/luisrudge/omasharp/blob/main/examples/hello), one `Backend.cs` as a window app and a panel, and [omacalc](https://github.com/luisrudge/omasharp/blob/main/examples/omacalc), Omarchy's calculator ported to C#. |

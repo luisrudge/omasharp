@@ -14,6 +14,7 @@ Bug reports, fixes and new bridge features are welcome, whether you write them o
 | `template/` | the `omarchy-app` template, exactly what a new app gets |
 | `template/bridge/` | the bridge, the one copy in this repo. Read its `README.md` first. |
 | `template/.agents/skills/omasharp/` | the agent skill: `SKILL.md`, `references/`, and `scripts/check.sh` (tests + an invisible run with screenshot and visible text) |
+| `skills/create-omasharp-app/` | the global skill that starts a new app (agents fetch it from `main`, so keep it working with the released template) |
 | `analyzers/` | `Omasharp.Analyzers` (the OMASHARP rules every app gets as a package; [README](analyzers/README.md)) and its tests |
 | `pack/` | the template package; `dotnet pack pack -o artifacts` |
 | `examples/` | apps that use `../../template/bridge` directly (no copy) |
