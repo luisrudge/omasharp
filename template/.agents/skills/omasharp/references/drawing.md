@@ -43,7 +43,7 @@ void DrawCpu()                                // after each new sample, and on T
     Span<(double X, double Y)> points = stackalloc (double X, double Y)[_cpu.Count];
     var i = 0;
     foreach (var v in _cpu)
-        points[i] = (_w * i++ / 59, _h - _h * v / 100);   // 60 slots across, 100 % at the top
+        points[i] = (_w * (60 - _cpu.Count + i++) / 59, _h - _h * v / 100);   // 60 slots, newest at the right; 100 % at the top
     var accent = Theme.Color("accent");
     var d = new Drawing();
     d.Line(0, _h / 2, _w, _h / 2, 1, Theme.Color("color8").WithAlpha(0.5));   // 50 % guide
