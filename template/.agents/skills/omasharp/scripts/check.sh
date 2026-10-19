@@ -59,7 +59,7 @@ obj=$PWD/obj/omasharp; mkdir -p "$obj"
 # stays, so the Omarchy theme still applies, and the user's fonts and font settings are linked in.
 xdg=$obj/xdg; fonts=${XDG_DATA_HOME:-$HOME/.local/share}/fonts; fontconfig=${XDG_CONFIG_HOME:-$HOME/.config}/fontconfig
 fresh() {
-  rm -rf "$xdg"; mkdir -p "$xdg/data" "$xdg/config" "$xdg/state" "$xdg/cache"
+  { rm -rf "$xdg" && mkdir -p "$xdg/data" "$xdg/config" "$xdg/state" "$xdg/cache"; } || { echo "check: couldn't empty $xdg: remove it, then check again" >&2; exit 1; }
   [ -z "$seed" ] || cp -R "$seed/." "$xdg/" || { echo "check: couldn't copy --seed $seed" >&2; exit 1; }
   [ -e "$xdg/data/fonts" ] || [ ! -d "$fonts" ] || ln -s "$fonts" "$xdg/data/fonts"
   [ -e "$xdg/config/fontconfig" ] || [ ! -d "$fontconfig" ] || ln -s "$fontconfig" "$xdg/config/fontconfig"

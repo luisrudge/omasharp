@@ -113,6 +113,13 @@ xcheck --real-data >"$work/win-real.log" 2>&1 || { tail -20 "$work/win-real.log"
 [ -f "$real/win/written.txt" ] || fail "check.sh --real-data: the app didn't get the real XDG_DATA_HOME"
 xcheck --env XDG_DATA_HOME=/tmp >"$work/win-xdg-env.log" 2>&1 && fail "check.sh --env: XDG_DATA_HOME was accepted"
 grep -q "can't set XDG_DATA_HOME" "$work/win-xdg-env.log" || { cat "$work/win-xdg-env.log"; fail "check.sh --env: no message for XDG_DATA_HOME"; }
+# Data it can't remove (a read-only folder) fails the check instead of starting from it.
+if [ "$(id -u)" != 0 ]; then
+  locked=$work/Win/obj/omasharp/xdg/data/locked; mkdir -p "$locked"; touch "$locked/left"; chmod 555 "$locked"
+  xcheck >"$work/win-xdg-locked.log" 2>&1 && { chmod 755 "$locked"; fail "check.sh: ran on data it couldn't remove"; }
+  chmod 755 "$locked"
+  grep -q "couldn't empty" "$work/win-xdg-locked.log" || { cat "$work/win-xdg-locked.log"; fail "check.sh: no message for data it couldn't remove"; }
+fi
 echo "the app's files went to obj/omasharp/xdg/, --seed and --real-data work"
 cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
 
