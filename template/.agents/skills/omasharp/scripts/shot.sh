@@ -18,7 +18,9 @@ here=$(cd "$(dirname "$0")" && pwd)
 sq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; } # shell-quote one word
 q() { printf ' '; sq "$1"; }                                          # ... after a space
 size=${OMASHARP_SHOT_SIZE:-}; [ -n "$size" ] || size=1280x960
-printf '%s' "$size" | grep -Eqx '[1-9][0-9]+x[1-9][0-9]+' || { echo "shot: bad size '$size' (use WxH, like 1280x960)" >&2; exit 1; }
+# No leading zeros (sh reads them as octal), and at least 2x2 (1.5x rounds odd sizes down).
+{ printf '%s' "$size" | grep -Eqx '[1-9][0-9]*x[1-9][0-9]*' && [ "${size%x*}" -ge 2 ] && [ "${size#*x}" -ge 2 ]; } ||
+  { echo "shot: bad size '$size' (use WxH, at least 2x2, like 1280x960)" >&2; exit 1; }
 keys=; [ -n "${OMASHARP_SHOT_KEYS_FILE:-}" ] && [ -s "$OMASHARP_SHOT_KEYS_FILE" ] && keys=$(cat "$OMASHARP_SHOT_KEYS_FILE")
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 # The user's session: the oldest Hyprland instance that answers (ignore stale env vars).

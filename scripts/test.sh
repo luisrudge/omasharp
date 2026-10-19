@@ -67,9 +67,16 @@ if hyprctl instances -j 2>/dev/null | jq -e 'length > 0' >/dev/null 2>&1; then
   px=$(python3 -I -c 'import struct, sys; print("%dx%d" % struct.unpack(">II", open(sys.argv[1], "rb").read(24)[16:24]))' "$work/Win/obj/shot.png")
   echo "screenshot: $px"
   [ "$px" = 936x1125 ] || fail "check.sh --size 625x751: the screenshot is $px, not 936x1125 (1.5x)"
+  # Single digits are sizes too.
+  (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --no-tests --size 8x6) >"$work/win-size-small.log" 2>&1 || { tail -20 "$work/win-size-small.log"; fail "check.sh --size 8x6"; }
 else
   echo "skipped: no Hyprland session"
 fi
+# Sizes it can't use fail before anything starts: 1 (0 at 1.5x), 0, and a leading zero (octal to sh).
+for bad in 1x8 0x8 08x8; do
+  OMASHARP_SHOT_SIZE=$bad sh "$root/template/.agents/skills/omasharp/scripts/shot.sh" "$work/bad.png" "$work/bad.log" true 2>"$work/bad-size.err" && fail "shot.sh: size $bad was accepted"
+  grep -q "bad size '$bad'" "$work/bad-size.err" || { cat "$work/bad-size.err"; fail "shot.sh: no message for size $bad"; }
+done
 
 step "check.sh --env reaches the app as it is (--offscreen)"
 cp "$work/Win/Backend.cs" "$work/Backend.cs.good"; cp "$work/Win/Main.qml" "$work/Main.qml.good"
