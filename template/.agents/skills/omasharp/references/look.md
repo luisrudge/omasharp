@@ -3,6 +3,7 @@
 ## Window apps
 
 - `theme.*` holds every key in Omarchy's `colors.toml`, camelCased: `theme.background`, `theme.foreground`, `theme.accent`, `theme.selection`, `theme.muted`, `theme.darkBackground`, `theme.red`, … plus `theme.dark` and `theme.name` (the theme's name as Omarchy stores it, e.g. `tokyo-night`). It updates live when the user switches themes. `Main.qml` sets the Omarchy font (`monospace`) on the window, so use `Label` (from QtQuick.Controls, which inherits it) rather than `Text`. Keep the layout simple and flat, like omacalc.
+- `QtQuick.Controls` (`ApplicationWindow`, `Label`) costs about 10 ms of startup and 2 MB: the hello example opened its window in 190 ms as a plain `Window` with `Text`, 200 ms with Controls (PSS 42 → 44 MB; medians of 14 interleaved runs). Keep Controls, as Omarchy's own apps do, unless start time matters most; then use `Window` and `Text` with `font.family: "monospace"`.
 - Secondary text (captions, hints): `Qt.alpha(theme.foreground, 0.6)`. `theme.muted` is meant for borders and is too dim for text.
 - Surfaces: `theme.lighterBackground` (fields, buttons), `theme.selection` (pressed, selected rows), `theme.muted` (borders). Don't derive them with `Qt.lighter(theme.background, …)`: that does nothing on Omarchy's pure black and pure white themes.
 - A themed text field, with the content selected on focus so typing replaces it:
