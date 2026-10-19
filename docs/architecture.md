@@ -21,7 +21,7 @@ window app                                    panel (omarchy-shell plugin)
 
 - `Model.cs` reflects over `Backend`: public instance properties and methods, camelCased for QML. Values cross the boundary as JSON in both transports, written and read with `Utf8JsonWriter`/`JsonDocument` (no reflection-based serializer). Your own classes and records become JS objects; to keep their properties under trimming, the build roots the app's own assembly. `INotifyPropertyChanged` becomes notifications, always delivered on the UI thread.
 - `Ui.cs`: `BackendBase` (`Set`, `Notify`, `Raise`), `Ui.Post`, a `SynchronizationContext` so `await` returns to the UI thread, and `Bridge` (`Args`, `Show`, `IsNativeAot`).
-- `Drawing.cs` builds a packed buffer of shapes for `DrawView`. `Theme.cs` reads Omarchy's `colors.toml` for C#.
+- `Drawing.cs` builds a packed buffer of shapes for `DrawView`. `Theme.cs` reads Omarchy's `colors.toml` and `theme.name` for C#.
 - Transports, chosen at compile time: `Native.cs` (`OMASHARP_NATIVE`, window apps), `Dev.cs` (window apps in Debug), `Stdio.cs` + `Shim.cs` (`OMASHARP_STDIO`, panels). The unused ones compile away, which is also why unit tests can compile the whole bridge.
 
 ## Window apps: the host (`bridge/host/`)
@@ -32,7 +32,7 @@ The host is one small Qt program, the same binary for every app. It's built once
 2. Sets the Wayland app_id (`QGuiApplication::setDesktopFileName`) from the app's `AppId`, so Hyprland window rules match it.
 3. Calls `start(host)`. C# constructs `Backend` and returns a description of its properties and methods.
 4. Builds `backend`: a `QQmlPropertyMap` holding every property (bindings work), plus one JS function per method that calls through the C ABI. Writes from QML go to C# and come back as whatever C# ended up with.
-5. Registers `<appid>.rcc` (the app's QML, fonts and images) and loads `qrc:/Main.qml`. It also exposes `theme` (Omarchy's colors, live) and the `DrawView` type.
+5. Registers `<appid>.rcc` (the app's QML, fonts and images) and loads `qrc:/Main.qml`. It also exposes `theme` (Omarchy's colors and theme name, live) and the `DrawView` type.
 
 On exit (`aboutToQuit`) the host calls `shutdown`, which runs the backend's `Dispose()` if it's `IDisposable`; the bridge hides `Dispose` from QML.
 

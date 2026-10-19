@@ -94,6 +94,40 @@ echo "red: $red% of the DrawView"
 [ "$red" -ge 90 ] || fail "DrawView: the software renderer drew no shapes"
 cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
 
+step "Theme.Name (C#) and theme.name (QML) read current/theme.name, and follow a switch"
+state=$work/theme-home/.local/state/omarchy/current; mkdir -p "$state/theme"; echo tokyo-night > "$state/theme.name"
+sed -i '/^public class Backend : BackendBase$/{n;a\
+    public Backend() => Theme.Changed += () => Notify(nameof(ThemeName));\
+    public string ThemeName => Theme.Name;
+}' "$work/Win/Backend.cs"
+cat > "$work/Win/Main.qml" <<'EOF'
+import QtQuick
+
+Window {
+  visible: true
+  width: 400
+  height: 300
+  Column {
+    Text { text: "qml: " + theme.name }
+    Text { text: "cs: " + backend.themeName }
+  }
+}
+EOF
+(cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "HOME=$work/theme-home") >"$work/win-theme.log" 2>&1 || { tail -20 "$work/win-theme.log"; fail "theme name app"; }
+{ grep -q "qml: tokyo-night" "$work/Win/obj/shot.txt" && grep -q "cs: tokyo-night" "$work/Win/obj/shot.txt"; } || { cat "$work/Win/obj/shot.txt"; fail "theme name: not read"; }
+# The same build, run by hand: switch the theme the way omarchy-theme-set does (theme.name rewritten).
+set --; while IFS= read -r a; do set -- "$@" "$a"; done < "$work/Win/obj/omasharp/launch"
+t=$work/theme.txt
+HOME=$work/theme-home QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software OMASHARP_TEXT_DUMP="$t" timeout 20 "$@" >"$work/theme-run.log" 2>&1 &
+pid=$!
+for _ in $(seq 100); do grep -q "cs: tokyo-night" "$t" 2>/dev/null && break; sleep 0.1; done
+echo catppuccin > "$state/theme.name"
+for _ in $(seq 50); do grep -q "qml: catppuccin" "$t" && grep -q "cs: catppuccin" "$t" && break; sleep 0.1; done
+kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true
+cat "$t"
+{ grep -q "qml: catppuccin" "$t" && grep -q "cs: catppuccin" "$t"; } || { tail -20 "$work/theme-run.log"; fail "theme name: didn't follow the switch"; }
+cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
+
 step "check.sh fails when the app's QML throws while running"
 cp "$work/Win/Main.qml" "$work/Main.qml.good"
 sed -i '0,/id: win/s//id: win\n  Component.onCompleted: notDefinedAnywhere.call()/' "$work/Win/Main.qml"
