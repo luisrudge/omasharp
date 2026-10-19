@@ -24,7 +24,7 @@ dotnet build -t:Uninstall
 
 - Window apps: the host (`<appid>`) is the same for every app. It's built once per machine (qmake + g++, about 7 s) and cached in `~/.cache/omasharp/`.
 - A release build takes about 5 s (mostly the native AOT compiler); a QML-only change about 1.5 s. `dotnet watch` applies C# changes in about 1.5 s.
-- **The app_id** is `AppId` in the csproj. Window rules match on it: the app floats if the user adds a rule such as `o.window("<appid>", { float = true })` in `~/.config/hypr/`. Don't change the user's Hyprland config without asking.
+- **The app_id** is `AppId` in the csproj (`dotnet new omarchy-app -n Tally --app-id tally-app` sets it; the default is the name in lowercase). Window rules match on it: the app floats if the user adds a rule such as `o.window("<appid>", { float = true })` in `~/.config/hypr/`. Don't change the user's Hyprland config without asking.
 
 ## The bridge: extending and updating it
 

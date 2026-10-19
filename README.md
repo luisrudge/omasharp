@@ -44,7 +44,7 @@ Apps follow the current Omarchy theme and repaint the moment you switch. QML bin
 3. Create an app and run it:
 
    ```sh
-   dotnet new omarchy-app -n Tally            # or --kind panel
+   dotnet new omarchy-app -n Tally            # or --kind panel; --app-id sets the app id (default: tally)
    cd Tally
    dotnet watch                               # runs it; QML and C# edits apply live
    dotnet publish -t:Install                  # installs ~/.local/bin/tally and a launcher entry

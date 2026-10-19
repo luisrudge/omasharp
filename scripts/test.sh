@@ -44,6 +44,10 @@ for f in AGENTS.md CLAUDE.md .editorconfig .agents/skills/omasharp/SKILL.md .age
 done
 grep -q "  .agents/skills/omasharp/SKILL.md$" "$work/Win/bridge/MANIFEST" || fail "MANIFEST doesn't cover the skill"
 
+step "--app-id sets the app id"
+new -n Named --app-id named-app
+grep -q "<AppId>named-app</AppId>" "$work/Named/Named.csproj" || fail "--app-id: AppId not set"
+
 step "window app: check.sh (tests, dev build, offscreen run), then --release"
 (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen && sh .agents/skills/omasharp/scripts/check.sh --offscreen --release --no-tests) >"$work/win.log" 2>&1 || { tail -30 "$work/win.log"; fail "window app"; }
 grep -A3 "visible text" "$work/win.log"
