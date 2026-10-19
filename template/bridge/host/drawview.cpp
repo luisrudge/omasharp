@@ -133,40 +133,52 @@ void triangle(std::vector<QSGGeometry::ColoredPoint2D> &t, QPointF a, QPointF b,
 }
 
 // Lines `width` thick through the points, one quad per segment. At a corner the two quads share
-// mitred corner points (no gap, no overlap); a corner sharper than 60° would make a long spike,
-// so there each quad ends square and a triangle fills the outside of the corner (a bevel).
+// the inner corner (where their inner edges meet), so nothing is drawn twice and a translucent
+// line keeps one shade. The outer corner is mitred, or bevelled (a triangle) when the corner is
+// sharper than 60°, where a mitre would stick out as a long spike. When a segment is too short
+// for the inner corner (a sharp turn between close points), the quads end square at the point
+// instead, and overlap a little inside the turn.
 void polyline(std::vector<QSGGeometry::ColoredPoint2D> &t, const std::vector<QPointF> &p, float width, quint32 argb) {
     if (p.size() < 2 || !(width > 0) || !std::isfinite(width)) return;
     const qreal hw = width / 2;
     std::vector<QPointF> dir; // unit direction of each segment
+    std::vector<qreal> len;
     dir.reserve(p.size() - 1);
+    len.reserve(p.size() - 1);
     for (size_t i = 0; i + 1 < p.size(); i++) {
         const QPointF d = p[i + 1] - p[i];
-        const qreal len = std::hypot(d.x(), d.y());
-        dir.push_back(len > 0 ? d / len : QPointF());
+        len.push_back(std::hypot(d.x(), d.y()));
+        dir.push_back(len.back() > 0 ? d / len.back() : QPointF());
     }
     const auto normal = [](QPointF d) { return QPointF(-d.y(), d.x()); };
     QPointF left = p[0] + normal(dir[0]) * hw, right = p[0] - normal(dir[0]) * hw; // the current segment's start
     for (size_t i = 0; i < dir.size(); i++) {
-        const QPointF n = normal(dir[i]);
-        QPointF endLeft = p[i + 1] + n * hw, endRight = p[i + 1] - n * hw, nextLeft, nextRight;
+        const QPointF n = normal(dir[i]), at = p[i + 1];
+        QPointF endLeft = at + n * hw, endRight = at - n * hw, nextLeft = endLeft, nextRight = endRight;
         if (i + 1 < dir.size()) {
-            const QPointF m = n + normal(dir[i + 1]);
+            const QPointF n2 = normal(dir[i + 1]), m = n + n2;
+            nextLeft = at + n2 * hw;
+            nextRight = at - n2 * hw;
+            const qreal turn = dir[i].x() * dir[i + 1].y() - dir[i].y() * dir[i + 1].x();
             const qreal mlen = std::hypot(m.x(), m.y());
-            const qreal cosHalf = mlen / 2; // cos of half the turn: the mitre is hw / cosHalf long
-            if (cosHalf >= 0.5) {
-                endLeft = nextLeft = p[i + 1] + m / mlen * (hw / cosHalf);
-                endRight = nextRight = p[i + 1] - m / mlen * (hw / cosHalf);
-            } else {
-                const QPointF n2 = normal(dir[i + 1]);
-                nextLeft = p[i + 1] + n2 * hw;
-                nextRight = p[i + 1] - n2 * hw;
-                // The outside of the turn: right when it turns left, and the other way round.
-                const qreal turn = dir[i].x() * dir[i + 1].y() - dir[i].y() * dir[i + 1].x();
-                if (turn > 0)
-                    triangle(t, p[i + 1], endRight, nextRight, argb);
-                else if (turn < 0)
-                    triangle(t, p[i + 1], endLeft, nextLeft, argb);
+            const qreal cosHalf = mlen / 2; // cos of half the turn: corners are hw / cosHalf from the point
+            if (turn != 0 && mlen > 1e-6) {
+                // The inside of the turn is on the left when it turns left (turn > 0).
+                const bool leftInside = turn > 0;
+                QPointF &endIn = leftInside ? endLeft : endRight, &nextIn = leftInside ? nextLeft : nextRight;
+                QPointF &endOut = leftInside ? endRight : endLeft, &nextOut = leftInside ? nextRight : nextLeft;
+                const QPointF toInner = m / mlen * (hw / cosHalf) * (leftInside ? 1 : -1);
+                // How far back along each segment the inner corner is.
+                const qreal reach = hw * std::sqrt(std::max(0.0, 1 - cosHalf * cosHalf)) / cosHalf;
+                const bool shared = reach <= std::min(len[i], len[i + 1]) / 2;
+                if (shared) endIn = nextIn = at + toInner;
+                if (cosHalf >= 0.5 && shared)
+                    endOut = nextOut = at - toInner;
+                else if (cosHalf >= 0.5) {
+                    triangle(t, at, endOut, at - toInner, argb);
+                    triangle(t, at, at - toInner, nextOut, argb);
+                } else
+                    triangle(t, shared ? endIn : at, endOut, nextOut, argb);
             }
         }
         quad(t, left, endLeft, endRight, right, argb);
