@@ -80,7 +80,7 @@ nws=$(hyprctl monitors -j | jq -r '.[] | select(.name=="shot") | .activeWorkspac
   if [ -n "${OMASHARP_SHOT_ENV_FILE:-}" ] && [ -s "$OMASHARP_SHOT_ENV_FILE" ]; then
     while IFS= read -r e; do
       printf '%s' "${e%%=*}" | grep -Eqx '[A-Za-z_][A-Za-z0-9_]*' || { echo "shot: bad environment variable '$e' (use KEY=VALUE)" >&2; exit 1; }
-      echo "export ${e%%=*}=$(sq "${e#*=}")"
+      printf '%s\n' "export ${e%%=*}=$(sq "${e#*=}")" # not echo: some shells' echo rewrites backslashes
     done < "$OMASHARP_SHOT_ENV_FILE"
   fi
   echo "export OMASHARP_PANEL_PAYLOAD='{\"screen\":\"shot\"}' QT_FORCE_STDERR_LOGGING=1 OMASHARP_TEXT_DUMP=$(sq "$tmp/text.txt")"
