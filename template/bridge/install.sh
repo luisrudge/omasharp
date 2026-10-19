@@ -45,9 +45,11 @@ uninstall)
 *) die "usage: install.sh [uninstall]" ;;
 esac
 
-# An unpacked release has app/ next to this script; piped from curl, there is no script file.
-from=$(dirname -- "$0")
-if [ ! -f "$from/app/lib$id.so" ]; then
+# An unpacked release has app/ next to this script. Piped from curl, $0 is the shell, not this
+# file, so it always downloads, even from inside an unpacked (maybe older) release.
+from=
+[ "${0##*/}" != install.sh ] || [ ! -f "$0" ] || from=$(dirname -- "$0")
+if [ -z "$from" ] || [ ! -f "$from/app/lib$id.so" ]; then
   [ -n "$repo" ] || die "this copy has no release to download; run the install.sh of an unpacked release"
   case $(uname -m) in
   x86_64) rid=linux-x64 ;;

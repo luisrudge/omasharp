@@ -380,6 +380,10 @@ for line in "Exec=\"$exe\" %f" "Exec=\"$exe\" --new" "StartupWMClass=notes" "Ico
   grep -qxF -- "$line" "$entry" || fail "release: no line '$line' in the installed entry"
 done
 case $(shown) in "Label: Notes: run 1, run 2, run 3"*) ;; *) tail -20 "$work/notes-run.log"; fail "release: the installed app didn't run" ;; esac
+# Piped from inside an unpacked (older) release, it still downloads the latest.
+mkdir -p "$work/oldrel"; tar -xzf "$rel/notes-linux-x64.tar.gz" -C "$work/oldrel"; echo 0.0.9 > "$work/oldrel/notes/version"
+(cd "$work/oldrel/notes" && user_install) >"$work/inside.log" 2>&1 || { cat "$work/inside.log"; fail "release: piped install inside an unpacked release"; }
+grep -q "^Installed Jo's & Al's Notes 0.1.0" "$work/inside.log" || { cat "$work/inside.log"; fail "release: piped install took the unpacked release in the current folder"; }
 # A download that doesn't match SHA256SUMS installs nothing.
 cp -r "$rel" "$work/bad"; printf x >> "$work/bad/notes-linux-x64.tar.gz"; cp "$exe" "$work/exe.before"
 user_install "" "$work/bad" >"$work/bad.log" 2>&1 && fail "release: a download that doesn't match SHA256SUMS was installed"
