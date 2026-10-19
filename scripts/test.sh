@@ -63,7 +63,7 @@ sed -i '/^public class Backend : BackendBase$/{n;a\
 sed -i '0,/id: win/s//id: win\n  Label { text: "env: " + backend.env }/' "$work/Win/Main.qml"
 # shellcheck disable=SC2016 # literally: the app must see $HOME and backticks unexpanded
 value='a '\''b'\'' "c" $HOME `id` \x; d=e'
-(cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "CHECK_ENV=$value") >"$work/win-env.log" 2>&1 || { tail -20 "$work/win-env.log"; fail "check.sh --env"; }
+(cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "CHECK_ENV=$value" --env QT_QUICK_BACKEND=software) >"$work/win-env.log" 2>&1 || { tail -20 "$work/win-env.log"; fail "check.sh --env"; }
 grep -qF "Label: env: $value" "$work/Win/obj/shot.txt" || { grep "env:" "$work/win-env.log"; fail "check.sh --env: the value didn't reach the app unchanged"; }
 grep -F "env:" "$work/Win/obj/shot.txt"
 (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env QT_QPA_PLATFORM=wayland) >"$work/win-env-reserved.log" 2>&1 && fail "check.sh --env: QT_QPA_PLATFORM was accepted"
