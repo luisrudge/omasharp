@@ -29,7 +29,7 @@ Setup, once per machine: the .NET SDK 10 (`omarchy pkg add dotnet-sdk`). qmake6 
    sh .agents/skills/omasharp/scripts/check.sh                       # tests, dev build, run it invisibly
    sh .agents/skills/omasharp/scripts/check.sh --keys "12{Tab}3{Enter}"   # type into the app first
    ```
-   It runs the unit tests, then starts the app in a private, invisible compositor and prints every visible text in the window, top to bottom, plus any QML error. A QML error in your own files fails the check.
+   It runs the unit tests, then starts the app in a private, invisible compositor and prints every visible text in the window, top to bottom, plus any QML error. A QML error in your own files fails the check. The app starts with empty data and settings (its `XDG_*_HOME` folders are in `obj/omasharp/xdg/`), never the user's; `--seed DIR` starts it from yours ([references/checking.md](references/checking.md)).
 3. **Read the printed values and check they're right** (is the result correct? does the list show what it should?), then open `obj/shot.png` to check the layout. A successful build proves nothing about the UI. Repeat 1–3 until both are right.
 4. Finish with **`sh .agents/skills/omasharp/scripts/check.sh --release`**: the same check on the release (native AOT) build. It fails on IL2xxx/IL3xxx warnings and must show the same values.
 5. Install only if the user asked: `dotnet publish -t:Install`. Publishing a release for other people (window apps: one `curl … | sh`, no sudo) also only when asked: [references/build.md](references/build.md#sharing-a-window-app).

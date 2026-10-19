@@ -5,12 +5,12 @@
 #   1. the analyzers' unit tests, then pack them and the template (generated apps restore
 #   Omasharp.Analyzers from that local package); 2. a new window app through the skill's check.sh
 #   (unit tests, dev and native AOT builds, each run headless on Qt's offscreen platform, checking
-#   the visible text; --env, DrawView's shapes, the theme name); a new panel app: build, tests, AOT
-#   publish, its stdio protocol; 3. every omasharp rule fails a generated app's build; 4. bridge
-#   update on a fresh app is a no-op; 5. SQLite the way the skill says (window app installed and run
-#   twice, panel), then -t:Install with the app's own app.desktop and -t:Uninstall; a release
-#   (-t:Package) installed, updated and removed by its install.sh as users run it; 6. the examples,
-#   through check.sh. Warnings fail every build (Omasharp.targets).
+#   the visible text; --size, --env, empty XDG dirs, DrawView's shapes, the theme name); a new
+#   panel app: build, tests, AOT publish, its stdio protocol; 3. every omasharp rule fails a
+#   generated app's build; 4. bridge update on a fresh app is a no-op; 5. SQLite the way the skill
+#   says (window app installed and run twice, panel), then -t:Install with the app's own app.desktop
+#   and -t:Uninstall; a release (-t:Package) installed, updated and removed by its install.sh as
+#   users run it; 6. the examples, through check.sh. Warnings fail every build (Omasharp.targets).
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d "${TMPDIR:-/tmp}/omasharp-test.XXXXXX")
@@ -84,6 +84,29 @@ grep -qF "Label: env: $value" "$work/Win/obj/shot.txt" || { grep "env:" "$work/w
 grep -F "env:" "$work/Win/obj/shot.txt"
 (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env QT_QPA_PLATFORM=wayland) >"$work/win-env-reserved.log" 2>&1 && fail "check.sh --env: QT_QPA_PLATFORM was accepted"
 grep -q "can't set QT_QPA_PLATFORM" "$work/win-env-reserved.log" || { cat "$work/win-env-reserved.log"; fail "check.sh --env: no message for a reserved variable"; }
+cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
+
+step "check.sh gives the app empty XDG dirs, not the real ones; --seed, --real-data (--offscreen)"
+sed -i '/^public class Backend : BackendBase$/{n;a\
+    public Backend() { var d = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.DoNotVerify), "win"); Directory.CreateDirectory(d); File.WriteAllText(Path.Combine(d, "written.txt"), "x"); var s = Path.Combine(d, "seed.txt"); Seed = File.Exists(s) ? File.ReadAllText(s).Trim() : "none"; }\
+    public string Seed { get; }
+}' "$work/Win/Backend.cs"
+sed -i '0,/id: win/s//id: win\n  Label { text: "seed: " + backend.seed }/' "$work/Win/Main.qml"
+# A stand-in for the user's real data folder: a check must leave it empty.
+real=$work/real-data; mkdir -p "$real" "$work/seed/data/win"; echo planted > "$work/seed/data/win/seed.txt"
+xcheck() { (cd "$work/Win" && XDG_DATA_HOME=$real sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests "$@"); }
+xcheck >"$work/win-xdg.log" 2>&1 || { tail -20 "$work/win-xdg.log"; fail "check.sh: app writing to XDG_DATA_HOME"; }
+[ -z "$(ls -A "$real")" ] || fail "check.sh: the app wrote to the real XDG_DATA_HOME: $(ls -A "$real")"
+[ -f "$work/Win/obj/omasharp/xdg/data/win/written.txt" ] || fail "check.sh: the app's file isn't in obj/omasharp/xdg/data"
+grep -q "seed: none" "$work/Win/obj/shot.txt" || { cat "$work/Win/obj/shot.txt"; fail "check.sh: the app didn't start from empty data"; }
+xcheck --seed "$work/seed" >"$work/win-seed.log" 2>&1 || { tail -20 "$work/win-seed.log"; fail "check.sh --seed"; }
+grep -q "seed: planted" "$work/Win/obj/shot.txt" || { cat "$work/Win/obj/shot.txt"; fail "check.sh --seed: the seeded file didn't reach the app"; }
+[ ! -e "$work/seed/data/win/written.txt" ] && [ -z "$(ls -A "$real")" ] || fail "check.sh --seed: the app wrote to the seed or the real folder"
+xcheck --real-data >"$work/win-real.log" 2>&1 || { tail -20 "$work/win-real.log"; fail "check.sh --real-data"; }
+[ -f "$real/win/written.txt" ] || fail "check.sh --real-data: the app didn't get the real XDG_DATA_HOME"
+xcheck --env XDG_DATA_HOME=/tmp >"$work/win-xdg-env.log" 2>&1 && fail "check.sh --env: XDG_DATA_HOME was accepted"
+grep -q "can't set XDG_DATA_HOME" "$work/win-xdg-env.log" || { cat "$work/win-xdg-env.log"; fail "check.sh --env: no message for XDG_DATA_HOME"; }
+echo "the app's files went to obj/omasharp/xdg/, --seed and --real-data work"
 cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
 
 step "DrawView draws its shapes under Qt's software renderer (--offscreen)"

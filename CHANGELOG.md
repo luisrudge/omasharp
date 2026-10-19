@@ -7,6 +7,7 @@ One section per `bridge/VERSION`. Apps update with `dotnet build -t:UpdateBridge
 Fixes from agents building system-monitor apps:
 
 - `check.sh --size` keeps the 1.5x scale for every size. An odd width or height has no whole-pixel mode at 1.5x, so Hyprland ran the app at 1x and the screenshot and layout were wrong. The check now rounds odd numbers down (`--size 625x751` runs at 624x750) and says so, and fails if the private screen doesn't end up at 1.5x.
+- `check.sh` no longer runs the app against the user's real data. The app gets empty `XDG_DATA_HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `XDG_CACHE_HOME` folders in `obj/omasharp/xdg/` (the unit tests and the build get the first three), emptied at the start of every check and again before the app starts, in the private compositor, for panels and with `--offscreen`. A check's `--keys` used to land in the installed app's database. `--seed DIR` copies `DIR/data`, `config`, `state` and `cache` in first; `--real-data` turns it off; `--env` can't set the four variables. `HOME` stays, so the theme still applies, and the user's fonts and fontconfig folder are linked in. The skill (`SKILL.md`, `references/checking.md`, `sqlite.md`, `panels.md`) says so.
 
 ## 0.1.5
 
