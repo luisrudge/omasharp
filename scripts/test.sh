@@ -54,6 +54,19 @@ step "window app: check.sh (tests, dev build, offscreen run), then --release"
 grep -A3 "visible text" "$work/win.log"
 [ "$(grep -c "Nothing counted yet" "$work/win.log")" -eq 2 ] || fail "window app: expected text not shown in both builds"
 
+step "check.sh --env reaches the app as it is (--offscreen)"
+cp "$work/Win/Backend.cs" "$work/Backend.cs.good"; cp "$work/Win/Main.qml" "$work/Main.qml.good"
+sed -i '/^public class Backend : BackendBase$/{n;a\
+    public string Env => Environment.GetEnvironmentVariable("CHECK_ENV") ?? "";
+}' "$work/Win/Backend.cs"
+sed -i '0,/id: win/s//id: win\n  Label { text: "env: " + backend.env }/' "$work/Win/Main.qml"
+# shellcheck disable=SC2016 # literally: the app must see $HOME and backticks unexpanded
+value='a '\''b'\'' "c" $HOME `id` \x; d=e'
+(cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "CHECK_ENV=$value") >"$work/win-env.log" 2>&1 || { tail -20 "$work/win-env.log"; fail "check.sh --env"; }
+grep -qF "Label: env: $value" "$work/Win/obj/shot.txt" || { grep "env:" "$work/win-env.log"; fail "check.sh --env: the value didn't reach the app unchanged"; }
+grep -F "env:" "$work/Win/obj/shot.txt"
+cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
+
 step "check.sh fails when the app's QML throws while running"
 cp "$work/Win/Main.qml" "$work/Main.qml.good"
 sed -i '0,/id: win/s//id: win\n  Component.onCompleted: notDefinedAnywhere.call()/' "$work/Win/Main.qml"

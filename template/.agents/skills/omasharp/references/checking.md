@@ -18,6 +18,7 @@ Run it in the app's folder (or pass the folder as the last argument). `--help` l
 - There is no mouse. Give every action you want to check a keyboard shortcut (`Shortcut { sequence: "Ctrl+Return"; onActivated: ... }`), which is good UX on Omarchy anyway.
 - The window tiles and fills the screen, as on Omarchy. The screen is 1280×960 (logical pixels); change it with `--size 1600x1000`. If the app floats on Omarchy (a window rule, like omacalc's), check it with `--float`: the window keeps its own size, centred, and the check warns when it's larger than the screen.
 - `--args "--flag value /some/path"` passes command-line arguments to the app (split on spaces, no quotes inside); the app sees them in `Bridge.Args`.
+- `--env KEY=VALUE` (repeatable) sets an environment variable for the app, e.g. `--env HOME=/tmp/fake-home` to give it a made-up Omarchy state. The app is started by the private compositor, so variables set in front of `check.sh` (`HOME=... sh check.sh`) reach the build but not the app. No shell sees the value.
 - `--offscreen` runs a window app with Qt's offscreen platform instead: visible text only, no screenshot and no keys, but no Hyprland needed (CI).
 - **Logic:** `dotnet run --project tests` runs `tests/Tests.cs` alone: plain C# checks of `Backend`, no Qt. Add your checks there; if you split the C# into more files, add them to `tests/*.Tests.csproj` too. `--no-tests` skips them in `check.sh`.
 - Qt logs go to the journal when stderr isn't a terminal; `check.sh` and dev mode set `QT_FORCE_STDERR_LOGGING=1` for you.

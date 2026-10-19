@@ -6,6 +6,7 @@
 #   --release        check the native AOT release build (dotnet publish); fails on IL2xxx/IL3xxx warnings
 #   --keys KEYS      type into the app first: text plus {Tab} {Enter} {Ctrl+a} {Wait:500} ... (keys.py)
 #   --args ARGS      command-line arguments for the app (split on whitespace; Bridge.Args)
+#   --env KEY=VALUE  an environment variable for the app (repeatable); no shell sees the value
 #   --size WxH       the screen size in logical pixels (default 1280x960)
 #   --float          float the window at its own size, centred, instead of tiling it to fill the
 #                    screen (for apps that float on Omarchy, like omacalc)
@@ -15,16 +16,23 @@
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 release=; keys=; args=; size=; float=; tests=1; offscreen=; dir=.
+nl='
+'; envs=
 while [ $# -gt 0 ]; do
   case $1 in
     --release) release=1 ;;
     --keys) keys=$2; shift ;;
     --args) args=$2; shift ;;
+    --env)
+      key=${2%%=*}
+      { [ "$key" != "$2" ] && printf '%s' "$key" | grep -Eqx '[A-Za-z_][A-Za-z0-9_]*'; } || { echo "check: --env needs KEY=VALUE, not '$2'" >&2; exit 2; }
+      case $2 in *"$nl"*) echo "check: an --env value can't contain a newline" >&2; exit 2 ;; esac
+      envs="$envs$2$nl"; shift ;;
     --size) size=$2; shift ;;
     --float) float=1 ;;
     --no-tests) tests= ;;
     --offscreen) offscreen=1 ;;
-    -h|--help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "check: unknown option $1 (see --help)" >&2; exit 2 ;;
     *) dir=$1 ;;
   esac
@@ -34,6 +42,7 @@ cd "$dir" || exit 2
 set -- *.csproj
 [ $# -eq 1 ] && [ -f "$1" ] || { echo "check: run it in the app's folder (the one with the app's .csproj)" >&2; exit 2; }
 obj=$PWD/obj/omasharp; mkdir -p "$obj"
+printf '%s' "$envs" > "$obj/env"
 
 if [ -n "$tests" ] && ls tests/*.csproj >/dev/null 2>&1; then
   echo "== unit tests"
@@ -56,6 +65,11 @@ if [ -n "$offscreen" ]; then
   [ "$kind" = window ] || { echo "check: --offscreen works for window apps only" >&2; exit 2; }
   [ -z "$keys" ] || { echo "check: --offscreen can't type keys" >&2; exit 2; }
   echo "== run (offscreen)"
+  # --env: through env(1), one argument per variable, so no shell sees the values.
+  if [ -n "$envs" ]; then
+    set -- env; while IFS= read -r e; do set -- "$@" "$e"; done < "$obj/env"
+    while IFS= read -r a; do set -- "$@" "$a"; done < "$obj/launch"
+  fi
   txt=$PWD/obj/shot.txt; rm -f "$txt"
   # shellcheck disable=SC2086
   QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software OMASHARP_TEXT_DUMP="$txt" timeout 15 "$@" $args > "$obj/run.log" 2>&1 &
@@ -69,7 +83,7 @@ if [ -n "$offscreen" ]; then
 else
   echo "== run (private compositor)"
   printf '%s' "$keys" > "$obj/keys"; printf '%s' "$args" > "$obj/args"
-  OMASHARP_SHOT_SIZE=$size OMASHARP_SHOT_FLOAT=$float OMASHARP_SHOT_KEYS_FILE=$obj/keys OMASHARP_SHOT_ARGS_FILE=$obj/args \
+  OMASHARP_SHOT_SIZE=$size OMASHARP_SHOT_FLOAT=$float OMASHARP_SHOT_KEYS_FILE=$obj/keys OMASHARP_SHOT_ARGS_FILE=$obj/args OMASHARP_SHOT_ENV_FILE=$obj/env \
     sh "$here/shot.sh" "$PWD/obj/shot.png" "$obj/run.log" "$@" || exit 1
 fi
 

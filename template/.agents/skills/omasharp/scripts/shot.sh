@@ -8,6 +8,7 @@
 # Optional, read from files so no shell ever evaluates them:
 #   OMASHARP_SHOT_KEYS_FILE  text plus {Tab} {Enter} {Up} {Ctrl+a} {Alt+1} ... (see keys.py)
 #   OMASHARP_SHOT_ARGS_FILE  extra app arguments, split on whitespace
+#   OMASHARP_SHOT_ENV_FILE   environment variables for the app, one KEY=VALUE per line
 # Also: OMASHARP_SHOT_SIZE (WxH logical pixels), OMASHARP_SHOT_WAIT (seconds before keys),
 # OMASHARP_SHOT_FLOAT=1 (float the window at its own size, centred, instead of tiling it).
 # (The omasharp repo's tools/session.sh has a copy of the session lookup; keep them in step.)
@@ -79,6 +80,12 @@ nws=$(hyprctl monitors -j | jq -r '.[] | select(.name=="shot") | .activeWorkspac
   # Keep the app off the user's desktop beyond the display: no portal dialogs, browser tabs or
   # notifications there (its own D-Bus session; the generic Qt theme, so dialogs draw in-window).
   echo "export OMASHARP_PLATFORMTHEME=generic QT_QPA_PLATFORMTHEME=generic NO_AT_BRIDGE=1 BROWSER=true"
+  if [ -n "${OMASHARP_SHOT_ENV_FILE:-}" ] && [ -s "$OMASHARP_SHOT_ENV_FILE" ]; then
+    while IFS= read -r e; do
+      printf '%s' "${e%%=*}" | grep -Eqx '[A-Za-z_][A-Za-z0-9_]*' || { echo "shot: bad environment variable '$e' (use KEY=VALUE)" >&2; exit 1; }
+      echo "export ${e%%=*}=$(sq "${e#*=}")"
+    done < "$OMASHARP_SHOT_ENV_FILE"
+  fi
   extra=; [ -n "${OMASHARP_SHOT_ARGS_FILE:-}" ] && [ -s "$OMASHARP_SHOT_ARGS_FILE" ] && extra=$(cat "$OMASHARP_SHOT_ARGS_FILE")
   printf 'exec dbus-run-session --config-file=%s --' "$(sq "$here/shot-dbus.conf")"; for a in "$@"; do q "$a"; done
   set -f; for a in $extra; do q "$a"; done; set +f
