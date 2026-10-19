@@ -297,6 +297,47 @@ EOF
 (cd "$work/NotesPanel" && dotnet run --project tests) >"$work/notes-tests.log" 2>&1 || { tail -30 "$work/notes-tests.log"; fail "sqlite panel: unit tests"; }
 grep -E "^(ok|FAIL)" "$work/notes-tests.log"
 
+step "Install with the app's own app.desktop, then Uninstall (the same private HOME)"
+cat > "$work/Notes/app.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Notes
+Comment=Notes kept in SQLite
+Exec=@EXEC@ %f
+Icon=wrong
+StartupWMClass=wrong
+Terminal=false
+Categories=Utility;
+MimeType=text/plain;
+Actions=new;
+
+[Desktop Action new]
+Name=New note
+Exec=@EXEC@ --new
+EOF
+printf '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"/>\n' > "$work/Notes/icon.svg"
+as_home() { (cd "$work/Notes" && HOME=$h DOTNET_CLI_HOME=$real_home NUGET_PACKAGES=$nuget_cache XDG_CACHE_HOME=$cache "$@" -v quiet -nologo); }
+as_home dotnet publish -t:Install >"$work/desktop.log" 2>&1 || { tail -30 "$work/desktop.log"; fail "app.desktop: publish -t:Install"; }
+entry=$h/.local/share/applications/notes.desktop; exe=$h/.local/share/omasharp/notes/notes
+cat "$entry"
+for line in "Exec=\"$exe\" %f" "Exec=\"$exe\" --new" "StartupWMClass=notes" "Icon=notes" "Comment=Notes kept in SQLite" ""; do
+  grep -qxF -- "$line" "$entry" || fail "app.desktop: no line '$line' in the installed entry"
+done
+grep -q "wrong\|@EXEC@" "$entry" && fail "app.desktop: Install didn't set Icon, StartupWMClass or Exec"
+if command -v update-desktop-database >/dev/null; then
+  grep -q "text/plain=notes.desktop" "$h/.local/share/applications/mimeinfo.cache" || fail "app.desktop: MIME cache not refreshed"
+fi
+as_home dotnet build -t:Uninstall >>"$work/desktop.log" 2>&1 || { tail -30 "$work/desktop.log"; fail "app.desktop: -t:Uninstall"; }
+left=$(cd "$h/.local" && find bin share/applications share/icons share/omasharp ! -type d 2>/dev/null || true)
+[ -z "$left" ] || fail "app.desktop: Uninstall left $left"
+if command -v desktop-file-validate >/dev/null; then
+  sed -i 's/^Type=Application$/Type=Nonsense/' "$work/Notes/app.desktop"
+  as_home dotnet publish -t:Install >"$work/desktop-bad.log" 2>&1 && fail "app.desktop: an invalid entry was installed"
+  { grep -q 'app.desktop.*value "Nonsense" for key "Type"' "$work/desktop-bad.log" && grep -q "app.desktop.*not a valid desktop entry" "$work/desktop-bad.log"; } || { tail -20 "$work/desktop-bad.log"; fail "app.desktop: no message for an invalid entry"; }
+  [ -e "$entry" ] && fail "app.desktop: the invalid entry was left installed"
+  as_home dotnet build -t:Uninstall >/dev/null 2>&1
+fi
+
 step "examples, through check.sh"
 (cd "$root/examples/omacalc" && $check --offscreen --release) >"$work/omacalc.log" 2>&1 || { tail -30 "$work/omacalc.log"; fail "omacalc"; }
 grep "passed" "$work/omacalc.log"

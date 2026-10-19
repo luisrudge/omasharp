@@ -14,6 +14,7 @@ The code that connects `Backend.cs` to QML. You rarely need to touch it. The too
 | `host/` | The C++ host, built with qmake and g++. It holds `backend` in a `QQmlPropertyMap`, exposes `theme` from Omarchy's `colors.toml`, and runs dev mode and QML hot reload. Every app uses the same host. It's built once into `~/.cache/omasharp/host-<Qt version>-<hash>/` and copied in as `<AppId>`. |
 | `shell/dev-shell.qml` | The standalone Quickshell harness for developing panels. |
 | `Omasharp.targets` | The build glue. AOT settings, warnings as errors, the analyzers (`Omasharp.Analyzers` at the same version as `VERSION`), the host build, the panel publish, dev mode, Install and Uninstall, and `OmasharpLaunch`, the run command the skill's `check.sh` uses. |
+| `desktop.sh` | Runs for `-t:Install` and `-t:Uninstall` of a window app. Writes the app's own `app.desktop` (if it has one) as its launcher entry, and refreshes the launcher's caches. |
 | `update.sh` | Runs for `dotnet build -t:UpdateBridge`. Brings in a newer bridge and skill from the installed template and keeps your changes. |
 | `VERSION`, `MANIFEST` | The version this app has, and a fingerprint of every bridge and skill file it received. |
 

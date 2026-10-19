@@ -17,11 +17,27 @@ dotnet watch        # run the app; rebuilds and reloads as you save
 ```sh
 dotnet publish                  # window: bin/Release/net10.0/linux-x64/publish/{<appid>, lib<appid>.so, <appid>.rcc}
                                 # panel:  plugin/bin/<Name> + plugin/Backend.qml
-dotnet publish -t:Install       # window: ~/.local/share/omasharp/<appid>/, ~/.local/bin/<appid>, a .desktop entry (icon.svg/icon.png if present)
+dotnet publish -t:Install       # window: ~/.local/share/omasharp/<appid>/, ~/.local/bin/<appid>, a .desktop entry (app.desktop, icon.svg/icon.png if present)
                                 # panel:  copies plugin/ to ~/.config/omarchy/plugins/<appid>/ and enables it
 dotnet build -t:Uninstall
 ```
 
+- **The launcher entry** (window apps): Install writes a minimal `.desktop` entry. For more (a comment, categories, keywords, opening files with `%f`, actions), put your own `app.desktop` next to the csproj and Install uses it instead. Write `@EXEC@` where the installed binary goes. Install sets `StartupWMClass`, and `Icon` when the app has `icon.svg` or `icon.png`:
+  ```ini
+  [Desktop Entry]
+  Type=Application
+  Name=Tally
+  Comment=Count things
+  Exec=@EXEC@ %f
+  Terminal=false
+  Categories=Utility;
+  Actions=reset;
+
+  [Desktop Action reset]
+  Name=Start from zero
+  Exec=@EXEC@ --reset
+  ```
+  Install checks it with `desktop-file-validate` (when it's installed) and fails on an invalid entry. It also refreshes the launcher's caches. Uninstall removes all of it.
 - Window apps: the host (`<appid>`) is the same for every app. It's built once per machine (qmake + g++, about 7 s) and cached in `~/.cache/omasharp/`.
 - A release build takes about 5 s (mostly the native AOT compiler); a QML-only change about 1.5 s. `dotnet watch` applies C# changes in about 1.5 s.
 - **The app_id** is `AppId` in the csproj (`dotnet new omarchy-app -n Tally --app-id tally-app` sets it; the default is the name in lowercase). Window rules match on it: the app floats if the user adds a rule such as `o.window("<appid>", { float = true })` in `~/.config/hypr/`. Don't change the user's Hyprland config without asking.
