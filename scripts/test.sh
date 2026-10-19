@@ -330,16 +330,17 @@ grep -q "wrong\|@EXEC@" "$entry" && fail "app.desktop: Install didn't set Icon, 
 if command -v update-desktop-database >/dev/null; then
   grep -q "text/plain=notes.desktop" "$h/.local/share/applications/mimeinfo.cache" || fail "app.desktop: MIME cache not refreshed"
 fi
-as_home dotnet build -t:Uninstall >>"$work/desktop.log" 2>&1 || { tail -30 "$work/desktop.log"; fail "app.desktop: -t:Uninstall"; }
-left=$(cd "$h/.local" && find bin share/applications share/icons share/omasharp ! -type d 2>/dev/null || true)
-[ -z "$left" ] || fail "app.desktop: Uninstall left $left"
+# An invalid entry fails Install and leaves the installed one as it was.
 if command -v desktop-file-validate >/dev/null; then
+  cp "$entry" "$work/entry.good"
   sed -i 's/^Type=Application$/Type=Nonsense/' "$work/Notes/app.desktop"
   as_home dotnet publish -t:Install >"$work/desktop-bad.log" 2>&1 && fail "app.desktop: an invalid entry was installed"
   { grep -q 'app.desktop.*value "Nonsense" for key "Type"' "$work/desktop-bad.log" && grep -q "app.desktop.*not a valid desktop entry" "$work/desktop-bad.log"; } || { tail -20 "$work/desktop-bad.log"; fail "app.desktop: no message for an invalid entry"; }
-  [ -e "$entry" ] && fail "app.desktop: the invalid entry was left installed"
-  as_home dotnet build -t:Uninstall >/dev/null 2>&1
+  cmp -s "$entry" "$work/entry.good" || fail "app.desktop: a failed Install changed the installed entry"
 fi
+as_home dotnet build -t:Uninstall >>"$work/desktop.log" 2>&1 || { tail -30 "$work/desktop.log"; fail "app.desktop: -t:Uninstall"; }
+left=$(cd "$h/.local" && find bin share/applications share/icons share/omasharp ! -type d 2>/dev/null || true)
+[ -z "$left" ] || fail "app.desktop: Uninstall left $left"
 
 step "examples, through check.sh"
 (cd "$root/examples/omacalc" && $check --offscreen --release) >"$work/omacalc.log" 2>&1 || { tail -30 "$work/omacalc.log"; fail "omacalc"; }
