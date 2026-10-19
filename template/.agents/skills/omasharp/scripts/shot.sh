@@ -76,16 +76,18 @@ nws=$(hyprctl monitors -j | jq -r '.[] | select(.name=="shot") | .activeWorkspac
 
 # 3. The app.
 { echo '#!/bin/sh'; echo "echo \$\$ > '$tmp/app.pid'"
-  echo "export OMASHARP_PANEL_PAYLOAD='{\"screen\":\"shot\"}' QT_FORCE_STDERR_LOGGING=1 OMASHARP_TEXT_DUMP=$(sq "$tmp/text.txt")"
-  # Keep the app off the user's desktop beyond the display: no portal dialogs, browser tabs or
-  # notifications there (its own D-Bus session; the generic Qt theme, so dialogs draw in-window).
-  echo "export OMASHARP_PLATFORMTHEME=generic QT_QPA_PLATFORMTHEME=generic NO_AT_BRIDGE=1 BROWSER=true"
+  # The caller's variables first, so the ones below (which keep the app inside this compositor) win.
   if [ -n "${OMASHARP_SHOT_ENV_FILE:-}" ] && [ -s "$OMASHARP_SHOT_ENV_FILE" ]; then
     while IFS= read -r e; do
       printf '%s' "${e%%=*}" | grep -Eqx '[A-Za-z_][A-Za-z0-9_]*' || { echo "shot: bad environment variable '$e' (use KEY=VALUE)" >&2; exit 1; }
       echo "export ${e%%=*}=$(sq "${e#*=}")"
     done < "$OMASHARP_SHOT_ENV_FILE"
   fi
+  echo "export OMASHARP_PANEL_PAYLOAD='{\"screen\":\"shot\"}' QT_FORCE_STDERR_LOGGING=1 OMASHARP_TEXT_DUMP=$(sq "$tmp/text.txt")"
+  echo "export WAYLAND_DISPLAY=$(sq "$nest_wl") XDG_RUNTIME_DIR=$(sq "$XDG_RUNTIME_DIR"); unset DISPLAY WAYLAND_SOCKET QT_QPA_PLATFORM"
+  # Keep the app off the user's desktop beyond the display: no portal dialogs, browser tabs or
+  # notifications there (its own D-Bus session; the generic Qt theme, so dialogs draw in-window).
+  echo "export OMASHARP_PLATFORMTHEME=generic QT_QPA_PLATFORMTHEME=generic NO_AT_BRIDGE=1 BROWSER=true"
   extra=; [ -n "${OMASHARP_SHOT_ARGS_FILE:-}" ] && [ -s "$OMASHARP_SHOT_ARGS_FILE" ] && extra=$(cat "$OMASHARP_SHOT_ARGS_FILE")
   printf 'exec dbus-run-session --config-file=%s --' "$(sq "$here/shot-dbus.conf")"; for a in "$@"; do q "$a"; done
   set -f; for a in $extra; do q "$a"; done; set +f

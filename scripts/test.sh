@@ -66,6 +66,8 @@ value='a '\''b'\'' "c" $HOME `id` \x; d=e'
 (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "CHECK_ENV=$value") >"$work/win-env.log" 2>&1 || { tail -20 "$work/win-env.log"; fail "check.sh --env"; }
 grep -qF "Label: env: $value" "$work/Win/obj/shot.txt" || { grep "env:" "$work/win-env.log"; fail "check.sh --env: the value didn't reach the app unchanged"; }
 grep -F "env:" "$work/Win/obj/shot.txt"
+(cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env QT_QPA_PLATFORM=wayland) >"$work/win-env-reserved.log" 2>&1 && fail "check.sh --env: QT_QPA_PLATFORM was accepted"
+grep -q "can't set QT_QPA_PLATFORM" "$work/win-env-reserved.log" || { cat "$work/win-env-reserved.log"; fail "check.sh --env: no message for a reserved variable"; }
 cp "$work/Backend.cs.good" "$work/Win/Backend.cs"; cp "$work/Main.qml.good" "$work/Win/Main.qml"
 
 step "DrawView draws its shapes under Qt's software renderer (--offscreen)"

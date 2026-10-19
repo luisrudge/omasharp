@@ -18,6 +18,8 @@ here=$(cd "$(dirname "$0")" && pwd)
 release=; keys=; args=; size=; float=; tests=1; offscreen=; dir=.
 nl='
 '; envs=
+# What keeps the app inside the private compositor (or offscreen): --env can't change these.
+reserved='QT_QPA_PLATFORM QT_QUICK_BACKEND WAYLAND_DISPLAY WAYLAND_SOCKET DISPLAY XDG_RUNTIME_DIR HYPRLAND_INSTANCE_SIGNATURE DBUS_SESSION_BUS_ADDRESS BROWSER QT_QPA_PLATFORMTHEME OMASHARP_PLATFORMTHEME OMASHARP_TEXT_DUMP'
 while [ $# -gt 0 ]; do
   case $1 in
     --release) release=1 ;;
@@ -27,6 +29,7 @@ while [ $# -gt 0 ]; do
       key=${2%%=*}
       { [ "$key" != "$2" ] && printf '%s' "$key" | grep -Eqx '[A-Za-z_][A-Za-z0-9_]*'; } || { echo "check: --env needs KEY=VALUE, not '$2'" >&2; exit 2; }
       case $2 in *"$nl"*) echo "check: an --env value can't contain a newline" >&2; exit 2 ;; esac
+      case " $reserved " in *" $key "*) echo "check: --env can't set $key: the check sets it to keep the app off your screen" >&2; exit 2 ;; esac
       envs="$envs$2$nl"; shift ;;
     --size) size=$2; shift ;;
     --float) float=1 ;;
