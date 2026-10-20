@@ -22,7 +22,7 @@ window app                                    panel (omarchy-shell plugin)
 - `Model.cs` reflects over `Backend`: public instance properties and methods, camelCased for QML. Values cross the boundary as JSON in both transports, written and read with `Utf8JsonWriter`/`JsonDocument` (no reflection-based serializer). Your own classes and records become JS objects; to keep their properties under trimming, the build roots the app's own assembly. `INotifyPropertyChanged` becomes notifications, always delivered on the UI thread.
 - `Ui.cs`: `BackendBase` (`Set`, `Notify`, `Raise`), `Ui.Post`, a `SynchronizationContext` so `await` returns to the UI thread, and `Bridge` (`Args`, `Show`, `IsNativeAot`).
 - `Drawing.cs` builds a packed buffer of shapes for `DrawView`. `Theme.cs` reads Omarchy's `colors.toml` and `theme.name` for C#.
-- Transports, chosen at compile time: `Native.cs` (`OMASHARP_NATIVE`, window apps), `Dev.cs` (window apps in Debug), `Stdio.cs` + `Shim.cs` (`OMASHARP_STDIO`, panels). The unused ones compile away, which is also why unit tests can compile the whole bridge.
+- Transports, chosen at compile time: `Native.cs` (`OMASHARP_NATIVE`, window apps), `Dev.cs` (window apps in Debug), `Stdio.cs` + `Shim.cs` (`OMASHARP_STDIO`, panels and bar widgets). The unused ones compile away, which is also why unit tests can compile the whole bridge.
 
 ## Window apps: the host (`bridge/host/`)
 
@@ -51,7 +51,7 @@ Startup choices that matter (measured):
 - Omarchy's `QT_QPA_PLATFORMTHEME=gtk3` is swapped for the portal theme, about 55 ms faster (`OMASHARP_PLATFORMTHEME` overrides this).
 - Updates are pushed synchronously when the app is already on the UI thread, instead of queued behind animation frames.
 
-## Panels
+## Panels and bar widgets
 
 The panel's QML runs inside omarchy-shell, which loads plugins from `~/.config/omarchy/plugins/<id>/`. Loading .NET into the shell would put the whole desktop at risk, so the C# runs as a child process instead:
 
@@ -67,6 +67,12 @@ The panel's QML runs inside omarchy-shell, which loads plugins from `~/.config/o
 
 A crash in the backend ends that process only: the panel shows `lastError` and can `restart()`. Calls to a backend that isn't running reject immediately.
 
+A bar widget (`--kind bar-widget`) is the same kind of plugin with two entry points (`plugin/manifest.json`):
+- `barWidget` (`BarWidget.qml`): the bar loads it once per monitor, as an icon (`BarIconButton`) with a dropdown (`KeyboardPanel`), both from the shell's `qs.Ui`. The bar hands it `bar`, a facade with the bar's colors, position and size.
+- `service` (`Service.qml`): the shell creates it once while the plugin is enabled, and its `Backend { }` runs the backend for the whole session. Widgets get it with `bar.shell.serviceFor(bar.pluginId)`, so every monitor's icon shows the same state; until then, each uses a stand-in `Backend` that never runs, so `backend` is never null.
+
+Disabling the plugin ends the service and its backend; Install deletes the running binary before copying the new one (a copy over it fails with "Text file busy").
+
 ## Dev mode
 
 A Debug build is dev mode: no native AOT compile and no `.rcc`, so it builds fast. `check.sh` uses it by default, and `dotnet run` opens it. The same host runs with `--dev App.dll --qml-dir <project>`:
@@ -75,6 +81,7 @@ A Debug build is dev mode: no native AOT compile and no `.rcc`, so it builds fas
 - QML loads from the project folder instead of a `.rcc`.
 - Nothing reloads while the app runs; the backend's members are fixed at start, as in release.
 - Panels in dev mode run in their own Quickshell process (`bridge/shell/dev-shell.qml`, with the shell's `qs.Commons`/`qs.Ui`), never inside omarchy-shell, with the backend on JIT.
+- Bar widgets run the same way in `bridge/shell/dev-bar.qml`: one `Service.qml`, a stand-in bar (a `PanelWindow` strip on the screen's edge, `OMASHARP_BAR_POSITION`, top by default) whose `bar` is the shell's own `PluginBarApi` with the theme's bar colors, and the widget at the strip's far end with its dropdown open. Closing the dropdown ends the run. Both harnesses write the visible text with `bridge/shell/TextDump.qml`.
 
 ## Checks: the skill's `check.sh` (`.agents/skills/omasharp/scripts/`)
 
@@ -83,7 +90,7 @@ A Debug build is dev mode: no native AOT compile and no `.rcc`, so it builds fas
 - That compositor's window sits on a hidden special workspace of the user's session; no monitor is added.
 - The app runs inside it on its own headless output, on a private D-Bus session that starts no services (`shot-dbus.conf`): no notifications, portal dialogs or browser tabs reach the user's desktop. Network and child processes are not sandboxed, and files only as far as the XDG dirs go: `check.sh` gives the app (and the tests and build before it) empty `XDG_DATA_HOME`/`CONFIG`/`STATE`/`CACHE` folders in `obj/omasharp/xdg/`, filled from `--seed DIR` and emptied before every run (`--real-data` turns this off). `HOME` stays, for the theme; the user's fonts and fontconfig are symlinked in.
 - The app's arguments, `--env` variables and `--keys` reach it through files, never through a shell. `keys.py` types into it with wtype (`{Tab}`, `{Ctrl+a}`, `{Wait:500}`); the key input stays inside the nested compositor.
-- It saves `obj/shot.png` and fails if the app didn't start or died. `check.sh` also fails when the run log has a JS error or `Unable to assign` on a line that points at the app's own QML (`file://<app>/`, `qrc:/`, `@plugin/`), so errors in Qt's or the shell's components don't count. While it runs, the host (and the panel harness) writes every visible text to `obj/shot.txt`, so a check can read values, not just pixels (password fields only as their masked text).
+- It saves `obj/shot.png` and fails if the app didn't start or died. `check.sh` also fails when the run log has a JS error or `Unable to assign` on a line that points at the app's own QML (`file://<app>/`, `qrc:/`, `@plugin/`), so errors in Qt's or the shell's components don't count. While it runs, the host (and the shell harnesses) writes every visible text to `obj/shot.txt`, so a check can read values, not just pixels (password fields only as their masked text).
 
 `check.sh` = unit tests (`tests/`), a dev build (or `--release`: the native AOT publish, failing on IL warnings; every build fails on any warning), then `shot.sh`. The build target `OmasharpLaunch` writes the command that runs the build to `obj/omasharp/launch`, so the script never has to work out paths. `--offscreen` runs a window app on Qt's offscreen platform instead (visible text only; CI).
 

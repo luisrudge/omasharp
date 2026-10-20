@@ -10,15 +10,17 @@ dotnet run          # a dev build, opened on the screen; edit, close it, run it 
 - Errors from QML and from C# go to the terminal.
 - Nothing reloads while it runs: close the app and run it again to see an edit.
 - **Panels:** `dotnet run` opens the panel in its own Quickshell process with the shell's theme, not inside `omarchy-shell`, so a broken panel can't hurt the desktop shell. Closing the panel ends the run. Set `OMASHARP_PANEL_PAYLOAD='{"screen":"<monitor>"}'` to choose the monitor.
+- **Bar widgets:** the same, with the widget in a stand-in bar at the top of the screen and its dropdown open. Closing the dropdown ends the run. `OMASHARP_BAR_POSITION=left` (or `bottom`, `right`) moves the bar.
 
 ## Build, install, uninstall
 
 ```sh
 dotnet publish                  # window: bin/Release/net10.0/linux-x64/publish/{<appid>, lib<appid>.so, <appid>.rcc}
-                                # panel:  plugin/bin/<Name> + plugin/Backend.qml
+                                # panel, bar widget: plugin/bin/<Name> + plugin/Backend.qml
 dotnet publish -t:Install       # window: ~/.local/share/omasharp/<appid>/, ~/.local/bin/<appid>, a .desktop entry (app.desktop, icon.svg/icon.png if present),
                                 #         through the same install.sh users run (see "Sharing a window app")
-                                # panel:  copies plugin/ to ~/.config/omarchy/plugins/<appid>/ and enables it
+                                # panel, bar widget: copies plugin/ to ~/.config/omarchy/plugins/<appid>/ and enables it
+                                #         (a bar widget's icon goes in the bar: bar-widgets.md)
 dotnet build -t:Uninstall
 dotnet publish -t:Package       # window: a release in artifacts/: <appid>-linux-x64.tar.gz, SHA256SUMS, install.sh
 ```
@@ -63,7 +65,7 @@ Put the two commands in the app's README.
 - **What `install.sh` does:** it downloads `<appid>-linux-x64.tar.gz` and `SHA256SUMS` from the release and checks one against the other before unpacking. It checks with `ldd` that the system has every library the app needs, at least as new as the ones it was built with; if not, it says to update the system and installs nothing. Then it puts the app where `-t:Install` does: the new copy goes in next to the old one and then takes its place, so a copy that's running keeps working, and a second install of the same app waits for the first. `OMASHARP_RELEASE=v0.1.0` installs that release instead of the latest; `OMASHARP_RELEASE_URL=<url>` downloads from another place with the same files (`file://` works, for testing). In an unpacked tarball, `sh install.sh` installs that copy; piped from curl, it always downloads.
 - `-t:Install` runs the same `install.sh` on the same files (`obj/omasharp/release/<appid>/`), so what a developer installs is what users get.
 - `-t:Package` writes the repo into `install.sh`: `AppRepository` in the csproj (`owner/repo`), which GitHub Actions fills in. Without it, that `install.sh` only installs from an unpacked tarball.
-- Releases are x86_64 only (`RuntimeIdentifier` is `linux-x64`). Panels have no release: `-t:Package` is for window apps.
+- Releases are x86_64 only (`RuntimeIdentifier` is `linux-x64`). Panels and bar widgets have no release: `-t:Package` is for window apps.
 - Omarchy's own repository (`omarchy pkg add <name>`) takes apps through a PKGBUILD in [omacom/omarchy-pkgs](https://github.com/omacom/omarchy-pkgs). It can repackage the same tarball.
 
 ## The bridge: extending and updating it
@@ -89,4 +91,4 @@ Put the two commands in the app's README.
 | `can't load lib<id>.so` | run the published `<id>` binary from its own folder (the lib must sit next to it) |
 | You need GTK's Qt integration back (GTK file dialogs, GTK font settings) | the host switches Omarchy's `QT_QPA_PLATFORMTHEME=gtk3` to the portal theme (about 55 ms faster start); run with `OMASHARP_PLATFORMTHEME=gtk3` to keep it |
 | `Failed to register with host portal ... already associated with an application ID` in the output | harmless, every Qt app prints it here; ignore |
-| Panel says "Backend stopped" | the C# process crashed; `backend.lastError` and the shell log (`quickshell log --pid $(pgrep -f 'quickshell -n -p /usr/share/omarchy/shell')`) show why |
+| A panel or bar widget says "Backend stopped" | the C# process crashed; `backend.lastError` and the shell log (`quickshell log --pid $(pgrep -f 'quickshell -n -p /usr/share/omarchy/shell')`) show why |

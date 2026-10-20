@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- window: Main.qml in a native window. panel: plugin/Panel.qml inside omarchy-shell. -->
+    <!-- window: Main.qml in a native window. panel: plugin/Panel.qml inside omarchy-shell.
+         bar-widget: plugin/BarWidget.qml, an icon in the Omarchy bar with a dropdown. -->
     <OmarchyKind>omarchy-kind</OmarchyKind>
     <!-- The Wayland app_id (window rules match on it) or the shell plugin id. -->
     <AppId>omarchy-app-id</AppId>

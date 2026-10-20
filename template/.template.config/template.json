@@ -4,7 +4,7 @@
   "classifications": ["Omarchy", "Desktop", "QML"],
   "identity": "Omasharp.OmarchyApp",
   "name": "Omarchy app (C# + QML)",
-  "description": "A C# + QML app for Omarchy: a window app (native AOT, starts like omacalc) or an omarchy-shell panel.",
+  "description": "A C# + QML app for Omarchy: a window app (native AOT, starts like omacalc), an omarchy-shell panel, or an icon in the Omarchy bar with a dropdown.",
   "shortName": "omarchy-app",
   "sourceName": "OmarchyApp",
   "preferNameDirectory": true,
@@ -15,11 +15,12 @@
       "datatype": "choice",
       "choices": [
         { "choice": "window", "description": "A normal app window (like omacalc): Main.qml + Backend.cs, one native binary." },
-        { "choice": "panel", "description": "An omarchy-shell panel: plugin/Panel.qml + Backend.cs running as a child process." }
+        { "choice": "panel", "description": "An omarchy-shell panel: plugin/Panel.qml + Backend.cs running as a child process." },
+        { "choice": "bar-widget", "description": "An icon in the Omarchy bar with a dropdown: plugin/BarWidget.qml + Backend.cs running as a child process." }
       ],
       "defaultValue": "window",
       "replaces": "omarchy-kind",
-      "description": "window or panel"
+      "description": "window, panel or bar-widget"
     },
     "appId": {
       "type": "parameter",
@@ -44,7 +45,8 @@
       "copyOnly": ["bridge/**", ".agents/**"],
       "modifiers": [
         { "condition": "(kind == \"window\")", "exclude": ["plugin/**"] },
-        { "condition": "(kind == \"panel\")", "exclude": ["Main.qml", "qtquickcontrols2.conf", ".github/**"] }
+        { "condition": "(kind == \"panel\")", "exclude": ["Main.qml", "qtquickcontrols2.conf", ".github/**", "plugin/BarWidget.qml", "plugin/Service.qml"] },
+        { "condition": "(kind == \"bar-widget\")", "exclude": ["Main.qml", "qtquickcontrols2.conf", ".github/**", "plugin/Panel.qml"] }
       ]
     }
   ],

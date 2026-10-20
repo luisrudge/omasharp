@@ -11,7 +11,7 @@ dotnet new omarchy-app -n Tally
 
 You edit two files. `Backend.cs` holds the logic and `Main.qml` holds the UI. `dotnet publish` compiles the C# to native code and pairs it with a small Qt host. The app runs on the Qt that Omarchy already ships, so nobody needs .NET installed to run it.
 
-Add `--kind panel` to make an omarchy-shell panel instead. The same `Backend.cs` then runs in its own process, so a crash in your code can't take the shell down.
+Add `--kind panel` to make an omarchy-shell panel instead, or `--kind bar-widget` for an icon in the Omarchy bar with a dropdown. The same `Backend.cs` then runs in its own process, so a crash in your code can't take the shell down.
 
 Every app also gets an agent skill in `.agents/skills/omasharp/`. Coding agents read it to learn how to build, check and install the app.
 
@@ -44,7 +44,7 @@ Apps follow the current Omarchy theme and repaint the moment you switch. QML bin
 3. Create an app and run it:
 
    ```sh
-   dotnet new omarchy-app -n Tally            # or --kind panel; --app-id sets the app id (default: tally)
+   dotnet new omarchy-app -n Tally            # or --kind panel, --kind bar-widget; --app-id sets the app id (default: tally)
    cd Tally
    dotnet run                                 # opens it (agents check it off-screen with the skill's check.sh)
    dotnet publish -t:Install                  # installs ~/.local/bin/tally and a launcher entry

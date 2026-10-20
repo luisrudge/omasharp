@@ -1,5 +1,6 @@
 <!-- Omasharp bridge build glue. Import from the app's .csproj after setting:
-       OmarchyKind  window (in-process bridge, libapp.so) | panel (stdio child process)
+       OmarchyKind  window (in-process bridge, libapp.so) | panel or bar-widget (shell plugins: QML in
+                    omarchy-shell, the backend a stdio child process)
        AppId        Wayland app_id / plugin id (default: lowercase project name)
        BackendType  the class exposed to QML as `backend` (default: Backend) -->
 <Project>
@@ -7,6 +8,8 @@
     <OmarchyKind Condition="'$(OmarchyKind)' == ''">window</OmarchyKind>
     <AppId Condition="'$(AppId)' == ''">$(AssemblyName.ToLowerInvariant())</AppId>
     <BackendType Condition="'$(BackendType)' == ''">Backend</BackendType>
+    <_OmasharpShellPlugin>false</_OmasharpShellPlugin>
+    <_OmasharpShellPlugin Condition="'$(OmarchyKind)' == 'panel' or '$(OmarchyKind)' == 'bar-widget'">true</_OmasharpShellPlugin>
     <OmasharpDir>$(MSBuildThisFileDirectory)</OmasharpDir>
     <_Home>$([System.Environment]::GetEnvironmentVariable('HOME'))</_Home>
     <TargetFramework Condition="'$(TargetFramework)' == ''">net10.0</TargetFramework>
@@ -63,15 +66,17 @@
     <DefineConstants>$(DefineConstants);OMASHARP_DEV</DefineConstants>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(OmarchyKind)' == 'panel'">
+  <PropertyGroup Condition="'$(_OmasharpShellPlugin)' == 'true'">
     <OutputType>Exe</OutputType>
     <DefineConstants>$(DefineConstants);OMASHARP_STDIO</DefineConstants>
     <!-- The shell plugin folder: publish puts the binary in its bin/ and writes its Backend.qml. -->
     <PluginDir Condition="'$(PluginDir)' == ''">$(MSBuildProjectDirectory)/plugin/</PluginDir>
     <PublishDir>$(PluginDir)bin/</PublishDir>
     <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
-    <!-- Dev mode: the panel runs in its own Quickshell (not in omarchy-shell), backend on JIT. -->
+    <!-- Dev mode: the plugin runs in its own Quickshell (not in omarchy-shell), backend on JIT. -->
     <_PanelDev>$(MSBuildProjectDirectory)/obj/panel-dev</_PanelDev>
+    <_PanelHarness>dev-shell.qml</_PanelHarness>
+    <_PanelHarness Condition="'$(OmarchyKind)' == 'bar-widget'">dev-bar.qml</_PanelHarness>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(OmarchyKind)' == 'window'">
@@ -110,6 +115,8 @@
 
   <!-- AppId names files and folders (Install removes them), so keep it to a safe shape. -->
   <Target Name="OmasharpCheckAppId" BeforeTargets="OmasharpAppInfo">
+    <Error Condition="'$(OmarchyKind)' != 'window' and '$(_OmasharpShellPlugin)' != 'true'"
+           Text="OmarchyKind '$(OmarchyKind)' must be window, panel or bar-widget." />
     <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(AppId)', '^[a-z0-9][a-z0-9._-]*$'))"
            Text="AppId '$(AppId)' must be lowercase letters, digits, '.', '-' or '_' (like tally or omasharp-hello)." />
     <Error Condition="'$(_Home)' == ''" Text="HOME isn't set." />
@@ -169,14 +176,14 @@
     <Message Importance="high" Text="$(AssemblyName) -> $(_PublishFull)$(AppId) (+ lib$(AppId).so, $(AppId).rcc)" />
   </Target>
 
-  <!-- dotnet run in Debug: start the dev host (window) or the panel harness.
+  <!-- dotnet run in Debug: start the dev host (window) or the shell plugin harness.
        Set late, once TargetPath is known. -->
   <Target Name="OmasharpRunArguments" BeforeTargets="ComputeRunArguments" DependsOnTargets="OmasharpCachedHost" Condition="'$(Configuration)' == 'Debug'">
     <PropertyGroup Condition="'$(OmarchyKind)' == 'window'">
       <RunCommand>$(OmasharpHost)</RunCommand>
       <RunArguments>--dev &quot;$(TargetPath)&quot; --qml-dir &quot;$(MSBuildProjectDirectory)&quot;</RunArguments>
     </PropertyGroup>
-    <PropertyGroup Condition="'$(OmarchyKind)' == 'panel'">
+    <PropertyGroup Condition="'$(_OmasharpShellPlugin)' == 'true'">
       <RunCommand>env</RunCommand>
       <RunArguments>OMASHARP_BACKEND_DLL=&quot;$(TargetPath)&quot; quickshell -p &quot;$(_PanelDev)&quot;</RunArguments>
     </PropertyGroup>
@@ -185,23 +192,24 @@
   <!-- Dev mode: make sure the cached host exists after a Debug build. -->
   <Target Name="OmasharpDevHost" AfterTargets="Build" DependsOnTargets="OmasharpCachedHost" Condition="'$(OmarchyKind)' == 'window' and '$(Configuration)' == 'Debug'" />
 
-  <Target Name="OmasharpQmlShim" AfterTargets="Publish" Condition="'$(OmarchyKind)' == 'panel'">
+  <Target Name="OmasharpQmlShim" AfterTargets="Publish" Condition="'$(_OmasharpShellPlugin)' == 'true'">
     <Exec Command="&quot;$(PublishDir)$(AssemblyName)&quot; --qml-shim &quot;$(PluginDir)Backend.qml&quot;" />
     <Message Importance="high" Text="$(AssemblyName) -> $(PluginDir) (bin/$(AssemblyName), Backend.qml)" />
   </Target>
 
-  <!-- Panel dev mode: regenerate Backend.qml from the JIT build, and set up a standalone
-       Quickshell config that shows plugin/Panel.qml with the shell's theme (qs.Commons). -->
-  <Target Name="OmasharpPanelDev" AfterTargets="Build" Condition="'$(OmarchyKind)' == 'panel' and '$(Configuration)' == 'Debug'">
+  <!-- Shell plugin dev mode: regenerate Backend.qml from the JIT build, and set up a standalone
+       Quickshell config that shows plugin/Panel.qml (or plugin/BarWidget.qml in a stand-in bar)
+       with the shell's theme (qs.Commons). -->
+  <Target Name="OmasharpPanelDev" AfterTargets="Build" Condition="'$(_OmasharpShellPlugin)' == 'true' and '$(Configuration)' == 'Debug'">
     <PropertyGroup><_Dotnet>$(DOTNET_HOST_PATH)</_Dotnet><_Dotnet Condition="'$(_Dotnet)' == ''">dotnet</_Dotnet></PropertyGroup>
     <Exec Command="&quot;$(_Dotnet)&quot; &quot;$(MSBuildProjectDirectory)/$(OutputPath)$(AssemblyName).dll&quot; --qml-shim &quot;$(PluginDir)Backend.qml&quot;" />
     <CallTarget Targets="OmasharpPanelHarness" />
   </Target>
 
-  <Target Name="OmasharpPanelHarness" Condition="'$(OmarchyKind)' == 'panel'">
+  <Target Name="OmasharpPanelHarness" Condition="'$(_OmasharpShellPlugin)' == 'true'">
     <MakeDir Directories="$(_PanelDev)" />
     <Exec Command="o=&quot;%24{OMARCHY_PATH:-/usr/share/omarchy}&quot; &amp;&amp; ln -sfn &quot;%24o/shell/Commons&quot; &quot;$(_PanelDev)/Commons&quot; &amp;&amp; ln -sfn &quot;%24o/shell/Ui&quot; &quot;$(_PanelDev)/Ui&quot; &amp;&amp; ln -sfn &quot;$(PluginDir.TrimEnd('/'))&quot; &quot;$(_PanelDev)/plugin&quot;" />
-    <Copy SourceFiles="$(OmasharpDir)shell/dev-shell.qml" DestinationFiles="$(_PanelDev)/shell.qml" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(OmasharpDir)shell/$(_PanelHarness);$(OmasharpDir)shell/TextDump.qml" DestinationFiles="$(_PanelDev)/shell.qml;$(_PanelDev)/TextDump.qml" SkipUnchangedFiles="true" />
   </Target>
 
   <!-- The command that runs this build, for the Omasharp skill's check script: one argument per
@@ -210,7 +218,7 @@
   <PropertyGroup>
     <_LaunchDeps Condition="'$(Configuration)' == 'Release'">Publish;OmasharpCachedHost</_LaunchDeps>
     <_LaunchDeps Condition="'$(Configuration)' != 'Release'">Build;OmasharpCachedHost</_LaunchDeps>
-    <_LaunchDeps Condition="'$(OmarchyKind)' == 'panel'">$(_LaunchDeps);OmasharpPanelHarness</_LaunchDeps>
+    <_LaunchDeps Condition="'$(_OmasharpShellPlugin)' == 'true'">$(_LaunchDeps);OmasharpPanelHarness</_LaunchDeps>
   </PropertyGroup>
   <Target Name="OmasharpLaunch" DependsOnTargets="$(_LaunchDeps)">
     <ItemGroup Condition="'$(OmarchyKind)' == 'window' and '$(Configuration)' != 'Release'">
@@ -220,7 +228,7 @@
     <ItemGroup Condition="'$(OmarchyKind)' == 'window' and '$(Configuration)' == 'Release'">
       <_Launch Include="$([System.IO.Path]::GetFullPath('$(PublishDir)'))$(AppId)" />
     </ItemGroup>
-    <ItemGroup Condition="'$(OmarchyKind)' == 'panel'">
+    <ItemGroup Condition="'$(_OmasharpShellPlugin)' == 'true'">
       <_Launch Include="env" Condition="'$(Configuration)' != 'Release'" />
       <_Launch Include="OMASHARP_BACKEND_DLL=$(TargetPath)" Condition="'$(Configuration)' != 'Release'" />
       <_Launch Include="quickshell" /><_Launch Include="-p" /><_Launch Include="$(_PanelDev)" />
@@ -281,7 +289,7 @@
   </Target>
 
   <Target Name="Package" DependsOnTargets="OmasharpStage">
-    <Error Condition="'$(OmarchyKind)' != 'window'" Text="Package makes window app releases; this is a panel." />
+    <Error Condition="'$(OmarchyKind)' != 'window'" Text="Package makes window app releases; this is a $(OmarchyKind)." />
     <PropertyGroup>
       <_Artifacts>$(MSBuildProjectDirectory)/artifacts/</_Artifacts>
       <_Asset>$(AppId)-$(RuntimeIdentifier).tar.gz</_Asset>
@@ -298,19 +306,23 @@
     <PropertyGroup>
       <_PluginTarget>$(_Home)/.config/omarchy/plugins/$(AppId)</_PluginTarget>
     </PropertyGroup>
-    <ItemGroup Condition="'$(OmarchyKind)' == 'panel'">
+    <ItemGroup Condition="'$(_OmasharpShellPlugin)' == 'true'">
       <_PluginFiles Include="$(PluginDir)**" />
     </ItemGroup>
     <Exec Condition="'$(OmarchyKind)' == 'window'" Command="sh &quot;$(_Stage)install.sh&quot;" StandardOutputImportance="high" />
-    <!-- panel: copy the plugin folder into the shell's plugins and enable it -->
-    <Copy Condition="'$(OmarchyKind)' == 'panel'" SourceFiles="@(_PluginFiles)" DestinationFiles="@(_PluginFiles->'$(_PluginTarget)/%(RecursiveDir)%(Filename)%(Extension)')" />
-    <Exec Condition="'$(OmarchyKind)' == 'panel'" Command="chmod +x &quot;$(_PluginTarget)/bin/$(AssemblyName)&quot; &amp;&amp; for i in 1 2 3 4 5 6 7 8 9 10; do omarchy plugin enable $(AppId) &gt;/dev/null 2&gt;&amp;1 &amp;&amp; exit 0; omarchy-shell shell rescanPlugins &gt;/dev/null 2&gt;&amp;1; sleep 0.5; done; echo 'omarchy plugin enable $(AppId) failed' &gt;&amp;2; exit 1" />
+    <!-- shell plugins: copy the plugin folder into the shell's plugins and enable it. The installed
+         backend may be running (always, for a bar widget), so it's removed first: copying over a
+         running binary fails with "Text file busy", removing it doesn't. -->
+    <Delete Condition="'$(_OmasharpShellPlugin)' == 'true'" Files="$(_PluginTarget)/bin/$(AssemblyName)" />
+    <Copy Condition="'$(_OmasharpShellPlugin)' == 'true'" SourceFiles="@(_PluginFiles)" DestinationFiles="@(_PluginFiles->'$(_PluginTarget)/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Exec Condition="'$(_OmasharpShellPlugin)' == 'true'" Command="chmod +x &quot;$(_PluginTarget)/bin/$(AssemblyName)&quot; &amp;&amp; for i in 1 2 3 4 5 6 7 8 9 10; do omarchy plugin enable $(AppId) &gt;/dev/null 2&gt;&amp;1 &amp;&amp; exit 0; omarchy-shell shell rescanPlugins &gt;/dev/null 2&gt;&amp;1; sleep 0.5; done; echo 'omarchy plugin enable $(AppId) failed' &gt;&amp;2; exit 1" />
     <Message Importance="high" Condition="'$(OmarchyKind)' == 'panel'" Text="Installed $(AppId): omarchy-shell shell toggle $(AppId)" />
+    <Message Importance="high" Condition="'$(OmarchyKind)' == 'bar-widget'" Text="Installed $(AppId): its icon is in the bar, on the right by default. Move it with: omarchy bar move $(AppId) --section left|center|right" />
   </Target>
 
   <Target Name="Uninstall" DependsOnTargets="OmasharpCheckAppId;OmasharpInstaller">
     <Exec Condition="'$(OmarchyKind)' == 'window'" Command="sh &quot;$(_Installer)&quot; uninstall" StandardOutputImportance="high" />
-    <Exec Condition="'$(OmarchyKind)' == 'panel'" Command="omarchy plugin disable $(AppId); rm -rf &quot;$(_Home)/.config/omarchy/plugins/$(AppId)&quot;" />
-    <Message Importance="high" Condition="'$(OmarchyKind)' == 'panel'" Text="Uninstalled $(AppId)" />
+    <Exec Condition="'$(_OmasharpShellPlugin)' == 'true'" Command="omarchy plugin disable $(AppId); rm -rf &quot;$(_Home)/.config/omarchy/plugins/$(AppId)&quot;" />
+    <Message Importance="high" Condition="'$(_OmasharpShellPlugin)' == 'true'" Text="Uninstalled $(AppId)" />
   </Target>
 </Project>
