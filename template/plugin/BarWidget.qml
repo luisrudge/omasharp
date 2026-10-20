@@ -23,7 +23,7 @@ Panel {
   Backend { id: idle; active: false }
   function countOrRestart() { if (backend.running) backend.increment(); else if (connected) backend.restart() }
 
-  // The icon: a Nerd Font glyph or short text. Left click opens the dropdown, right click counts.
+  // The icon: a Nerd Font glyph or short text. Left click opens the dropdown, right click counts (or restarts a stopped backend).
   BarIconButton {
     id: button
     anchors.fill: parent
@@ -31,7 +31,7 @@ Panel {
     text: String(backend.count)
     tooltipText: backend.label
     active: root.opened
-    onPressed: function(b) { if (b === Qt.RightButton) backend.increment(); else root.toggle() }
+    onPressed: function(b) { if (b === Qt.RightButton) root.countOrRestart(); else root.toggle() }
   }
 
   KeyboardPanel {
@@ -50,7 +50,7 @@ Panel {
       anchors.fill: parent
       onCloseRequested: root.close()
       onActivateRequested: root.countOrRestart()
-      onTextKey: function(t) { if (t === "r") backend.reset() }
+      onTextKey: function(t) { if (t === "r" && backend.running) backend.reset() }
       onTabRequested: function(direction) { root.switchPanel(direction) }
 
       Column {
@@ -72,7 +72,7 @@ Panel {
           anchors.horizontalCenter: parent.horizontalCenter
           spacing: Style.space(12)
           Button { text: root.connected && !backend.running ? "Restart" : "Count"; bordered: true; onClicked: root.countOrRestart() }
-          Button { text: "Reset"; bordered: true; onClicked: backend.reset() }
+          Button { text: "Reset"; bordered: true; enabled: backend.running; opacity: enabled ? 1 : 0.5; onClicked: backend.reset() }
         }
       }
     }
