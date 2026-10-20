@@ -6,7 +6,9 @@
 #   Omasharp.Analyzers from that local package); 2. a new window app through the skill's check.sh
 #   (unit tests, dev and native AOT builds, each run headless on Qt's offscreen platform, checking
 #   the visible text; --size, --env, empty XDG dirs, DrawView's shapes, lines and areas, the theme
-#   name); a new panel app: build, tests, AOT publish, its stdio protocol; 3. every Omasharp rule
+#   name); a new panel app: build, tests, AOT publish, its stdio protocol; a new bar widget app: the
+#   same, its manifest, -t:Install over its running backend, and (with Hyprland) check.sh showing the
+#   icon and the dropdown, --keys and a vertical bar; 3. every Omasharp rule
 #   fails a generated app's build; 4. bridge update on a fresh app is a no-op; 5. SQLite the way the skill
 #   says (window app installed and run twice, panel), then -t:Install with the app's own app.desktop
 #   and -t:Uninstall; a release (-t:Package) installed, updated and removed by its install.sh as
@@ -288,6 +290,56 @@ echo "$reply"
 echo "$reply" | grep -q '"op":"hello"' || fail "panel: no hello"
 echo "$reply" | grep -q '"op":"notify","name":"count","value":0' || fail "panel: set didn't echo the value C# kept"
 echo "$reply" | grep -q '"value":"Counted 1 time"' || fail "panel: increment didn't reach label"
+manifest() { python3 -I -c 'import json, sys; m = json.load(open(sys.argv[1])); sys.exit(0 if eval(sys.argv[2]) else 1)' "$@"; }
+manifest "$work/Pan/plugin/manifest.json" 'm["kinds"] == ["panel"] and m["entryPoints"] == {"panel": "Panel.qml"} and "barWidget" not in m' || { cat "$work/Pan/plugin/manifest.json"; fail "panel: not a panel's manifest"; }
+[ ! -e "$work/Pan/plugin/BarWidget.qml" ] && [ ! -e "$work/Pan/plugin/Service.qml" ] || fail "panel app: has the bar widget's QML"
+
+step "bar widget app: build, tests, AOT publish, stdio protocol, manifest; -t:Install over a running backend"
+new -n Bar --kind bar-widget
+[ ! -e "$work/Bar/.github" ] || fail "bar widget: has the window apps' release workflow"
+[ ! -e "$work/Bar/plugin/Panel.qml" ] || fail "bar widget: has plugin/Panel.qml"
+[ -f "$work/Bar/plugin/BarWidget.qml" ] && [ -f "$work/Bar/plugin/Service.qml" ] || fail "bar widget: no plugin/BarWidget.qml or plugin/Service.qml"
+manifest "$work/Bar/plugin/manifest.json" 'm["id"] == "bar" and m["kinds"] == ["bar-widget", "service"] and m["entryPoints"] == {"barWidget": "BarWidget.qml", "service": "Service.qml"} and m["barWidget"]["defaultSection"] == "right"' || { cat "$work/Bar/plugin/manifest.json"; fail "bar widget: manifest"; }
+(cd "$work/Bar" && dotnet build -v quiet -nologo && dotnet run --project tests && dotnet publish -v quiet -nologo) >"$work/bar.log" 2>&1 || { tail -30 "$work/bar.log"; fail "bar widget app"; }
+grep -E "warning IL[0-9]+" "$work/bar.log" && fail "bar widget app: AOT warnings"
+[ -s "$work/Bar/plugin/Backend.qml" ] || fail "bar widget app: no generated Backend.qml"
+reply=$( (printf '%s\n' '{"op":"call","id":1,"name":"increment","args":[]}' '{"op":"get","id":2,"name":"label"}'; sleep 0.5) | "$work/Bar/plugin/bin/Bar")
+echo "$reply" | grep -q '"op":"hello"' || fail "bar widget: no hello"
+echo "$reply" | grep -q '"value":"Counted 1 time"' || fail "bar widget: increment didn't reach label"
+# A bar widget's backend runs all session, so Install replaces a running binary. omarchy and
+# omarchy-shell are stand-ins here: the real shell never hears about it.
+stubs=$work/stubs; mkdir -p "$stubs"
+cat > "$stubs/omarchy" <<EOF
+#!/bin/sh
+echo "\$(basename "\$0") \$*" >> "$stubs/calls"
+EOF
+cp "$stubs/omarchy" "$stubs/omarchy-shell"; chmod +x "$stubs/omarchy" "$stubs/omarchy-shell"
+bh=$work/bar-home; mkdir -p "$bh"
+as_bar_home() { (home=$HOME; cd "$work/Bar" && HOME=$bh DOTNET_CLI_HOME=$home NUGET_PACKAGES=$nuget_cache PATH="$stubs:$PATH" "$@" -nologo); }
+as_bar_home dotnet publish -t:Install -v quiet >"$work/bar-install.log" 2>&1 || { tail -20 "$work/bar-install.log"; fail "bar widget: -t:Install"; }
+installed=$bh/.config/omarchy/plugins/bar
+mkfifo "$work/bar-stdin"
+"$installed/bin/Bar" <"$work/bar-stdin" >/dev/null 2>&1 & running=$!
+exec 3>"$work/bar-stdin"; sleep 0.5
+as_bar_home dotnet publish -t:Install >"$work/bar-install.log" 2>&1 || { tail -20 "$work/bar-install.log"; fail "bar widget: -t:Install over the running backend"; }
+exec 3>&-; wait "$running" || true
+grep -q "omarchy bar move bar --section left|center|right" "$work/bar-install.log" || { tail -10 "$work/bar-install.log"; fail "bar widget: Install doesn't say where the icon is"; }
+for f in manifest.json BarWidget.qml Service.qml Backend.qml bin/Bar; do [ -f "$installed/$f" ] || fail "bar widget: Install left out $f"; done
+[ "$(grep -c "^omarchy plugin enable bar$" "$stubs/calls")" -eq 2 ] || { cat "$stubs/calls"; fail "bar widget: Install didn't enable the plugin"; }
+as_bar_home dotnet build -t:Uninstall -v quiet >>"$work/bar-install.log" 2>&1 || { tail -20 "$work/bar-install.log"; fail "bar widget: -t:Uninstall"; }
+[ ! -e "$installed" ] || fail "bar widget: Uninstall left $installed"
+grep -q "^omarchy plugin disable bar$" "$stubs/calls" || fail "bar widget: Uninstall didn't disable the plugin"
+
+step "bar widget: check.sh shows the icon and the dropdown, and --keys reach the dropdown (private compositor; needs Hyprland)"
+if hyprctl instances -j 2>/dev/null | jq -e 'length > 0' >/dev/null 2>&1; then
+  (cd "$work/Bar" && $check --no-tests) >"$work/bar-check.log" 2>&1 || { tail -30 "$work/bar-check.log"; fail "bar widget: check.sh"; }
+  grep -A12 "visible text" "$work/bar-check.log"
+  { grep -q "^BarIconButton: 0$" "$work/Bar/obj/shot.txt" && grep -q "Text: Nothing counted yet" "$work/Bar/obj/shot.txt"; } || fail "bar widget: the icon's count or the dropdown's label isn't shown"
+  (cd "$work/Bar" && $check --no-tests --env OMASHARP_BAR_POSITION=left --keys "{Enter}") >"$work/bar-keys.log" 2>&1 || { tail -30 "$work/bar-keys.log"; fail "bar widget: check.sh --keys"; }
+  { grep -q "^BarIconButton: 1$" "$work/Bar/obj/shot.txt" && grep -q "Text: Counted 1 time" "$work/Bar/obj/shot.txt"; } || { cat "$work/Bar/obj/shot.txt"; fail "bar widget: {Enter} didn't count in both the icon and the dropdown"; }
+else
+  echo "skipped: no Hyprland session"
+fi
 
 step "every Omasharp rule fails a generated app's build, with its message"
 new -n Lint

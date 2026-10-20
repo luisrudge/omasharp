@@ -35,9 +35,9 @@ cd examples/hello && sh ../../template/.agents/skills/omasharp/scripts/check.sh 
 
 An app made from a local package restores `Omasharp.Analyzers` from nuget.org at the same version. For a version that isn't published yet, add `artifacts/` as a package source in the app (a `NuGet.config` next to it), the way `scripts/test.sh` does.
 
-`scripts/test.sh` runs the analyzers' tests, packs both packages into a temporary store, generates a window app and a panel app, then for each:
+`scripts/test.sh` runs the analyzers' tests, packs both packages into a temporary store, generates a window app, a panel app and a bar widget app, then for each:
 - builds it, runs its unit tests and publishes it with native AOT;
-- runs it headless and checks what it shows (the panel's backend is checked through its protocol).
+- runs it headless and checks what it shows (the panel's and the bar widget's backends are checked through their protocol; with a Hyprland session, the bar widget also runs through `check.sh`, on a top and a left bar).
 
 It also checks that each OMASHARP rule fails a generated app's build, and builds and tests the examples (they use the analyzers from source). It never touches your screen, your installed templates or your files.
 

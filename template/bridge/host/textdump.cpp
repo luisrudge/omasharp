@@ -1,7 +1,7 @@
 // check.sh support (the Omasharp skill): with OMASHARP_TEXT_DUMP=<file>, write every visible text in the window
 // (Label/Text/TextField/Button/ComboBox ...) to <file> a few times a second, so a check
 // can read what the user would see, not just a screenshot.
-// Keep the output in step with the panel version in bridge/shell/dev-shell.qml.
+// Keep the output in step with the shell harnesses' version in bridge/shell/TextDump.qml.
 #include <QFile>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>

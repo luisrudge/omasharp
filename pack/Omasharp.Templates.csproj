@@ -9,7 +9,7 @@
     <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../template/bridge/VERSION').Trim())</Version>
     <Title>Omarchy app templates (C# + QML)</Title>
     <Authors>Luis Rudge</Authors>
-    <Description>dotnet new omarchy-app: C# + QML apps for Omarchy. Window apps compile to one native (AOT) binary on the system Qt; shell panels run C# safely outside omarchy-shell. Includes an agent skill (.agents/skills/omasharp).</Description>
+    <Description>dotnet new omarchy-app: C# + QML apps for Omarchy. Window apps compile to one native (AOT) binary on the system Qt; shell panels and bar widgets run C# safely outside omarchy-shell. Includes an agent skill (.agents/skills/omasharp).</Description>
     <PackageTags>dotnet-new;templates;omarchy;hyprland;qml;qt;nativeaot</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>

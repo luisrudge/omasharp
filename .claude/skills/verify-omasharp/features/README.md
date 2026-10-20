@@ -11,7 +11,7 @@ The maintained source for verifying what users of Omasharp see: the template, th
 
 ## Driving conventions
 
-- Start every recipe from a fresh app: `APP=$(sh $S new "$RUN" <Name> [--kind panel])`. Names are per run; pick a new one instead of reusing an app another recipe changed.
+- Start every recipe from a fresh app: `APP=$(sh $S new "$RUN" <Name> [--kind panel|bar-widget])`. Names are per run; pick a new one instead of reusing an app another recipe changed.
 - Run `check.sh` from the app's folder: `sh .agents/skills/omasharp/scripts/check.sh`.
 - Treat commands as literal. Keep quoted keys and names unchanged.
 - Read results from `obj/shot.txt` lines (`<Type>: <text>`, children indented two spaces).
@@ -34,6 +34,7 @@ Each feature file has an H1 title and one paragraph on the user-visible behavior
 
 - [Window app](./window-app.md): `dotnet new omarchy-app`, the counter, dev and release builds, theme.
 - [Panel app](./panel-app.md): `--kind panel`, the panel in the dev shell, the backend's stdio protocol.
+- [Bar widget app](./bar-widget.md): `--kind bar-widget`, the icon and dropdown in the stand-in bar, keys, a vertical bar.
 - [check.sh](./check-sh.md): what agents rely on: visible text, keys, empty XDG dirs, `--seed`, `--env`, failing on QML errors.
 - [Install and release](./install-and-release.md): `-t:Install`/`-t:Uninstall`, `-t:Package` and the release's `install.sh`.
 - [Bridge update](./update-bridge.md): `-t:UpdateBridge` replaces untouched files and keeps customized ones.

@@ -5,11 +5,11 @@
 | `int _count;` `public int Count { get => _count; set => Set(ref _count, value); }` | `backend.count` (bindable; assigning sets it in C#) |
 | `public string Label => ...` (get only) | `backend.label` (read-only: assignments are rejected and logged) |
 | `public void Increment()` | `backend.increment()` |
-| `public int Add(int a, int b)` | `backend.add(2, 3)`; in a window it returns 5. In a **panel** it returns a Promise: `backend.add(2, 3).then(v => ...)` |
+| `public int Add(int a, int b)` | `backend.add(2, 3)`; in a window it returns 5. In a **panel** or **bar widget** it returns a Promise: `backend.add(2, 3).then(v => ...)` |
 | `public async Task<Weather> FetchAsync(string city)` | `backend.fetchAsync("Oslo").then(w => label.text = w.temp)`: async methods return a Promise that settles when the task finishes, with its value (or rejects with the exception's message) |
 | `public async Task SaveAsync()` | `backend.saveAsync()`: a Promise resolving to `null` when done |
 | `public List<Item> Items { get; }` with `record Item(string Name, long Size)` | `backend.items`: a JS array of `{ name, size }`. Use it as a model: `Repeater { model: backend.items; Label { required property var modelData; text: modelData.name } }` (or `ListView`) |
-| exception thrown in C# | a JS exception in a window (`try/catch`), a rejected Promise in a panel |
+| exception thrown in C# | a JS exception in a window (`try/catch`), a rejected Promise in a panel or bar widget |
 
 - Values QML can read: `string`, `bool`, numbers (`int`, `long`, `double`, `decimal`, ...), enums (as strings), `DateTime` (ISO string), **your own classes and records** (JS objects with their public properties, camelCased), and arrays, lists and `Dictionary<string, T>` of any of those, nested. Method **arguments** from QML, and values QML assigns to properties, must be `string`, `bool`, a number, an enum, `string[]`/`double[]`/`int[]`, or `object` (a parsed JSON value): pass an id or index, not an object.
 - **Changing a list:** QML only sees a new list when you notify. Either assign a new list to a property with `Set`, or change it in place and call `Notify(nameof(Items))`. Each notify sends the whole list, so for thousands of rows send a page or a summary instead.
@@ -40,7 +40,7 @@
   }
   ```
   Report progress every few hundred items or every ~100 ms, not on every item. In unit tests `Ui.Post` runs the action at once.
-- In a panel, `backend.ready` (the first values have arrived), `backend.running`, `backend.lastError` and `backend.restart()` also exist.
+- In a panel or bar widget, `backend.ready` (the first values have arrived), `backend.running`, `backend.lastError` and `backend.restart()` also exist.
 - Names QML can't take fail the build (OMASHARP001), with a message: JS reserved words (`Delete()` would be `backend.delete`, use `Remove()`; also `New`, `Default`, `Import`, `Switch`, …), names starting with `_`, and the bridge's own members (`Ready`, `Running`, `Active`, `Command`, `Program`, `LastError`, `Restart`, `Raised`, `Exited`, `Call`, `Keys`).
 
 ## The build checks the backend
@@ -60,7 +60,7 @@ Every warning fails the build, so a mistake shows up as a build error with its f
 | OMASHARP009 / 010 | `async void` (return `Task`) / `ConfigureAwait(false)` (remove it) |
 
 - **Don't make `Backend`'s public members `static`**: QML only sees instance members. (.NET's "can be static" rule, CA1822, is already off for them.)
-- A backend that owns a timer, a file watcher or a process implements `IDisposable`; the bridge calls `Dispose()` when the app exits (window closed, or the shell closed the panel). QML doesn't see `Dispose`.
+- A backend that owns a timer, a file watcher or a process implements `IDisposable`; the bridge calls `Dispose()` when the app exits (window closed, or the shell closed the panel or stopped the bar widget). QML doesn't see `Dispose`.
 - When a rule is wrong for one member, turn it off right there with the reason: `[System.Diagnostics.CodeAnalysis.SuppressMessage("Omasharp", "OMASHARP003", Justification = "only the tests call it")]`, or `#pragma warning disable OMASHARP003` / `#pragma warning restore OMASHARP003` around the lines. For the whole app, `.editorconfig` (`dotnet_diagnostic.ID.severity = none`, with the reason in a comment). Never to make a build pass.
 
 ## Native AOT rules (release builds)

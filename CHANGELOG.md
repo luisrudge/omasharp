@@ -2,6 +2,18 @@
 
 One section per `bridge/VERSION`. Apps update with `dotnet build -t:UpdateBridge`; entries marked **ABI** change the C ABI (`bridge/host/omasharp.h` ⟷ `bridge/cs/Native.cs`), so an app that customized either file must merge both before it runs again.
 
+## 0.1.8
+
+Bar widgets: `dotnet new omarchy-app --kind bar-widget` makes an icon in the Omarchy bar that opens a dropdown, like Omarchy's own Tailscale and Power widgets. The starter is the panel's counter: the icon shows the count, the dropdown has the label and the buttons, and a right click counts.
+
+- The plugin has two entry points. `plugin/BarWidget.qml` is the icon (`BarIconButton`) and the dropdown (`KeyboardPanel`), once per monitor. `plugin/Service.qml` runs the backend once per session, and every monitor's icon gets it with `bar.shell.serviceFor(bar.pluginId)`, so they all show the same state. The backend runs from when the widget is enabled until it's disabled or the shell restarts.
+- `Omasharp.targets` treats `bar-widget` like `panel` everywhere (publish into `plugin/bin/`, `Backend.qml`, dev mode, `OmasharpLaunch`, Install and Uninstall), and fails the build for an `OmarchyKind` that isn't `window`, `panel` or `bar-widget`. Install says where the icon went and how to move it (`omarchy bar move <appid> --section left|center|right`).
+- Install deletes the installed backend before copying the new one. A running backend made the copy fail with "Text file busy": always for a bar widget, and for a panel with `keepLoaded` or one that was open.
+- Dev mode and `check.sh`: `bridge/shell/dev-bar.qml` shows the widget in a stand-in bar at the top of a private screen, with the shell's own `PluginBarApi`, and opens the dropdown; closing it ends the run. `--keys` reach the dropdown, and `--env OMASHARP_BAR_POSITION=left` (or `bottom`, `right`) checks a vertical bar. The visible-text dump moved out of `dev-shell.qml` into `bridge/shell/TextDump.qml`, which both harnesses use; a panel's output is unchanged.
+- The skill: a new `references/bar-widgets.md` (the icon, the dropdown, clicks, the backend's lifetime, placement, vertical bars, checking), and `SKILL.md`, `panels.md`, `build.md`, `checking.md`, `backend.md` and `look.md` mention bar widgets. The `create-omasharp-app` skill picks `--kind bar-widget` for a bar, menubar or tray icon app.
+
+`UpdateBridge` brings in the bridge and skill changes; window apps and panels build and run as before. A panel app that customized `Omasharp.targets` must merge its `.upstream` before its dev mode and `check.sh` work again: the new `shell/dev-shell.qml` needs `TextDump.qml` next to it in `obj/panel-dev/`, and only the new targets copy it there (the merge also brings the `_OmasharpShellPlugin` property, which replaces the `'$(OmarchyKind)' == 'panel'` conditions, and Install's delete). One that customized `shell/dev-shell.qml` keeps working, with the text dump inline. The host's source changed only in a comment (`host/textdump.cpp`), so the cached host is built once more.
+
 ## 0.1.7
 
 The name is capitalized in prose now, Omasharp, like Omarchy: the README, docs, the skill, comments, the analyzers package's title and description, and the hello example's title. Names that code or tools use don't change: the `Omasharp` namespace, the package IDs, the `.agents/skills/omasharp/` folder and the skill's name, paths, app ids, and the `omasharp:` prefix on log messages.

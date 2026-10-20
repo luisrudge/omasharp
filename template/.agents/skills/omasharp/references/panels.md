@@ -6,6 +6,6 @@
 - Every method call returns a Promise, even for synchronous C# methods: `backend.add(2, 3).then(v => ...)`.
 - `omarchy-shell shell toggle <appid>` opens (or closes) an installed panel; that's what to bind a key to, if the user asks for one.
 - omarchy-shell may keep running the previous QML of an already-loaded panel after a reinstall. If changes don't show, `omarchy-shell shell rescanPlugins`; if they still don't, they will after the next shell restart.
-- Only the `panel` plugin kind is supported. Bar widgets (`bar-widget`) are not yet: don't improvise one, tell the user.
+- An icon in the bar with a dropdown is a bar widget, not a panel: [bar-widgets.md](bar-widgets.md).
 - `Drawing`/`DrawView` are for window apps; in panels, use QML items.
 - Colors, fonts and the shell's controls: [look.md](look.md).

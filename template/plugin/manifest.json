@@ -4,7 +4,21 @@
   "name": "OmarchyApp",
   "version": "0.1.0",
   "author": "",
+//#if (kind == "bar-widget")
+  "description": "An icon in the bar, on the right. Click it.",
+  "kinds": ["bar-widget", "service"],
+  "entryPoints": { "barWidget": "BarWidget.qml", "service": "Service.qml" },
+  "barWidget": {
+    "displayName": "OmarchyApp",
+    "category": "Tools",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {},
+    "schema": []
+  }
+//#else
   "description": "Open with: omarchy-shell shell toggle omarchy-app-id",
   "kinds": ["panel"],
   "entryPoints": { "panel": "Panel.qml" }
+//#endif
 }

@@ -1,6 +1,6 @@
 ---
 name: verify-omasharp
-description: Prove a change to Omasharp (the omarchy-app template, its bridge, the agent skill, the analyzers) works the way users meet it. Pack this checkout into a private template store, generate a window app or panel with dotnet new omarchy-app, drive it with the app's own check.sh (private compositor, --keys, visible text, screenshot), and keep the evidence. Use after changing template/, analyzers/ or pack/, before saying a change works, or to reproduce a reported bug in a fresh app.
+description: Prove a change to Omasharp (the omarchy-app template, its bridge, the agent skill, the analyzers) works the way users meet it. Pack this checkout into a private template store, generate a window app, panel or bar widget with dotnet new omarchy-app, drive it with the app's own check.sh (private compositor, --keys, visible text, screenshot), and keep the evidence. Use after changing template/, analyzers/ or pack/, before saying a change works, or to reproduce a reported bug in a fresh app.
 ---
 
 # Verify Omasharp
