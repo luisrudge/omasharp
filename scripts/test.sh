@@ -549,5 +549,9 @@ grep -q "AC" "$work/omacalc.log" || fail "omacalc: keypad not shown"
 (cd "$root/examples/hello" && $check --offscreen --release) >"$work/hello.log" 2>&1 || { tail -30 "$work/hello.log"; fail "hello"; }
 grep -q "Hello, Omarchy" "$work/hello.log" || fail "hello: greeting not shown"
 (cd "$root/examples/hello" && dotnet publish -p:OmarchyKind=panel -v quiet -nologo) >"$work/hello-panel.log" 2>&1 || { tail -30 "$work/hello-panel.log"; fail "hello panel publish"; }
+(cd "$root/examples/pomodoro" && $check --offscreen --release) >"$work/pomodoro.log" 2>&1 || { tail -30 "$work/pomodoro.log"; fail "pomodoro"; }
+grep -q "25:00" "$work/pomodoro.log" || fail "pomodoro: countdown not shown"
+(cd "$root/examples/systemmonitor" && $check --offscreen --release) >"$work/systemmonitor.log" 2>&1 || { tail -30 "$work/systemmonitor.log"; fail "systemmonitor"; }
+grep -q "MEMORY" "$work/systemmonitor.log" || fail "systemmonitor: cards not shown"
 
 step "all good"

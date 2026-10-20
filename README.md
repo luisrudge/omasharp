@@ -105,7 +105,7 @@ One `Backend.cs` works as a window app (left) and as a panel (right):
 | `skills/` | `create-omasharp-app`, the skill agents install once to start new apps ([With an agent](https://github.com/luisrudge/omasharp#with-an-agent)). |
 | `analyzers/` | `Omasharp.Analyzers`, the build-time checks every app gets ([rules](https://github.com/luisrudge/omasharp/blob/main/analyzers/README.md)). |
 | `pack/` | Builds the `Omasharp.Templates` package. |
-| `examples/` | [hello](https://github.com/luisrudge/omasharp/blob/main/examples/hello), one `Backend.cs` as a window app and a panel, and [omacalc](https://github.com/luisrudge/omasharp/blob/main/examples/omacalc), Omarchy's calculator ported to C#. |
+| `examples/` | [hello](https://github.com/luisrudge/omasharp/blob/main/examples/hello), one `Backend.cs` as a window app and a panel, [omacalc](https://github.com/luisrudge/omasharp/blob/main/examples/omacalc), Omarchy's calculator ported to C#, a [pomodoro](https://github.com/luisrudge/omasharp/blob/main/examples/pomodoro) timer, and a [system monitor](https://github.com/luisrudge/omasharp/blob/main/examples/systemmonitor) with graphs drawn in C#. |
 | `scripts/` | `test.sh` runs everything CI checks. `lint.sh` checks formatting. |
 | `tools/` | Benchmark helpers for contributors. |
 | `docs/` | [How Omasharp works](https://github.com/luisrudge/omasharp/blob/main/docs/architecture.md). |

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OmarchyKind>window</OmarchyKind>
+    <!-- Its own app_id, so it never replaces an app you made from the template with the same name. -->
+    <AppId>omasharp-pomodoro</AppId>
+    <AppName>Pomodoro</AppName>
+    <!-- This repo's analyzers, from source (apps get the Omasharp.Analyzers package). -->
+    <OmasharpAnalyzersProject>$(MSBuildThisFileDirectory)../../analyzers/Omasharp.Analyzers/Omasharp.Analyzers.csproj</OmasharpAnalyzersProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="tests/**" />
+  </ItemGroup>
+  <Import Project="../../template/bridge/Omasharp.targets" />
+</Project>
