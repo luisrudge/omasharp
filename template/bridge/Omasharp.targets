@@ -317,7 +317,7 @@
     <Copy Condition="'$(_OmasharpShellPlugin)' == 'true'" SourceFiles="@(_PluginFiles)" DestinationFiles="@(_PluginFiles->'$(_PluginTarget)/%(RecursiveDir)%(Filename)%(Extension)')" />
     <Exec Condition="'$(_OmasharpShellPlugin)' == 'true'" Command="chmod +x &quot;$(_PluginTarget)/bin/$(AssemblyName)&quot; &amp;&amp; for i in 1 2 3 4 5 6 7 8 9 10; do omarchy plugin enable $(AppId) &gt;/dev/null 2&gt;&amp;1 &amp;&amp; exit 0; omarchy-shell shell rescanPlugins &gt;/dev/null 2&gt;&amp;1; sleep 0.5; done; echo 'omarchy plugin enable $(AppId) failed' &gt;&amp;2; exit 1" />
     <Message Importance="high" Condition="'$(OmarchyKind)' == 'panel'" Text="Installed $(AppId): omarchy-shell shell toggle $(AppId)" />
-    <Message Importance="high" Condition="'$(OmarchyKind)' == 'bar-widget'" Text="Installed $(AppId): its icon is in the bar, on the right by default. Move it with: omarchy bar move $(AppId) --section left|center|right" />
+    <Message Importance="high" Condition="'$(OmarchyKind)' == 'bar-widget'" Text="Installed $(AppId): its icon is in the bar, on the right by default. Move it by dragging it, or with: omarchy bar move $(AppId) --section left|centerBegin|centerEnd|right|tray (Omarchy 4.5+; earlier releases: left|center|right)" />
   </Target>
 
   <Target Name="Uninstall" DependsOnTargets="OmasharpCheckAppId;OmasharpInstaller">

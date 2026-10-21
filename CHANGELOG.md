@@ -2,6 +2,15 @@
 
 One section per `bridge/VERSION`. Apps update with `dotnet build -t:UpdateBridge`; entries marked **ABI** change the C ABI (`bridge/host/omasharp.h` ⟷ `bridge/cs/Native.cs`), so an app that customized either file must merge both before it runs again.
 
+## 0.1.9
+
+Omarchy 4.5 (checked against v4.5.0-rc1, its shell and its Quickshell 0.3.2 and Qt 6.12; window apps, panels and bar widgets run unchanged):
+
+- The bar has more sections: `left`, `centerBegin`, `center`, `centerEnd`, `right`, and `tray` (the tray's drawer). `center` is now the clock's box, and a widget put there moves the clock off center, so Install's message names `omarchy bar move <appid> --section left|centerBegin|centerEnd|right|tray` (and `left|center|right` for Omarchy before 4.5), and `references/bar-widgets.md` lists the sections and says to put a widget beside the clock with `centerBegin` or `centerEnd`. The starter's `defaultSection` stays `right`, which every Omarchy 4 release takes.
+- Omarchy's rule for plugins is that text they show is plain text: `Text`'s default reads markup-shaped text as rich text, which can load a remote image inside the shell. The starter's `Panel.qml` and `BarWidget.qml` set `textFormat: Text.PlainText` on the text that shows the backend's values (so does the hello example's panel), and `references/look.md` says to do the same.
+
+`UpdateBridge` brings in the new message and skill text. The starter's QML is the app's own, so an existing panel or bar widget adds `textFormat: Text.PlainText` itself, to every `Text` that shows backend values.
+
 ## 0.1.8
 
 Bar widgets: `dotnet new omarchy-app --kind bar-widget` makes an icon in the Omarchy bar that opens a dropdown, like Omarchy's own Tailscale and Power widgets. The starter is the panel's counter: the icon shows the count, the dropdown has the label and the buttons, and a right click counts.

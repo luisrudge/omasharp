@@ -30,8 +30,9 @@ A bar widget (`OmarchyKind` `bar-widget`) is an icon in the Omarchy bar that ope
 
 ## Install and placement
 
-- `dotnet publish -t:Install` copies `plugin/` to `~/.config/omarchy/plugins/<appid>/` and enables it, which puts the icon in the bar section `defaultSection` names in `manifest.json` (`right` in the starter; `left`, `center` or `right`).
-- The user moves it by dragging it, or with `omarchy bar move <appid> --section left|center|right`. Reinstalling keeps it where it is.
+- `dotnet publish -t:Install` copies `plugin/` to `~/.config/omarchy/plugins/<appid>/` and enables it, which puts the icon in the bar section `defaultSection` names in `manifest.json` (`right` in the starter).
+- The sections, in the order they run along the bar: `left`, `centerBegin`, `center`, `centerEnd`, `right`, and `tray`, the tray's drawer. `center` is the clock's box, centered as one group: put a widget beside the clock with `centerBegin` or `centerEnd`, never `center`, or the clock moves off center (a `defaultSection` of `center` lands in `centerEnd`). Omarchy before 4.5 has only `left`, `center` and `right`, so `right` and `left` work everywhere.
+- The user moves it by dragging it, or with `omarchy bar move <appid> --section <section>`. Reinstalling keeps it where it is.
 - `dotnet build -t:Uninstall` takes it out of the bar and removes it.
 - omarchy-shell may keep running the previous QML after a reinstall. If changes don't show, `omarchy-shell shell rescanPlugins`; if they still don't, they will after the next shell restart.
 

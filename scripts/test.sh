@@ -323,7 +323,7 @@ mkfifo "$work/bar-stdin"
 exec 3>"$work/bar-stdin"; sleep 0.5
 as_bar_home dotnet publish -t:Install >"$work/bar-install.log" 2>&1 || { tail -20 "$work/bar-install.log"; fail "bar widget: -t:Install over the running backend"; }
 exec 3>&-; wait "$running" || true
-grep -q "omarchy bar move bar --section left|center|right" "$work/bar-install.log" || { tail -10 "$work/bar-install.log"; fail "bar widget: Install doesn't say where the icon is"; }
+grep -qF "omarchy bar move bar --section left|centerBegin|centerEnd|right|tray (Omarchy 4.5+; earlier releases: left|center|right)" "$work/bar-install.log" || { tail -10 "$work/bar-install.log"; fail "bar widget: Install doesn't say where the icon is"; }
 for f in manifest.json BarWidget.qml Service.qml Backend.qml bin/Bar; do [ -f "$installed/$f" ] || fail "bar widget: Install left out $f"; done
 [ "$(grep -c "^omarchy plugin enable bar$" "$stubs/calls")" -eq 2 ] || { cat "$stubs/calls"; fail "bar widget: Install didn't enable the plugin"; }
 as_bar_home dotnet build -t:Uninstall -v quiet >>"$work/bar-install.log" 2>&1 || { tail -20 "$work/bar-install.log"; fail "bar widget: -t:Uninstall"; }

@@ -66,20 +66,20 @@ Item {
       Column {
         anchors.centerIn: parent
         spacing: 12
-        Text { anchors.horizontalCenter: parent.horizontalCenter; color: Commons.Color.popups.text; font.family: Style.font.family; font.pixelSize: 26; text: backend.ready ? backend.greeting : (backend.running ? "starting…" : "backend stopped") }
-        Text { anchors.horizontalCenter: parent.horizontalCenter; color: Commons.Color.muted; font.family: Style.font.family; font.pixelSize: 14; text: backend.time + " · " + backend.runtime }
-        Text { anchors.horizontalCenter: parent.horizontalCenter; color: Commons.Color.urgent; font.family: Style.font.family; font.pixelSize: 12; visible: !backend.running && backend.lastError !== ""; text: backend.lastError; width: 380; elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter }
+        Text { textFormat: Text.PlainText; anchors.horizontalCenter: parent.horizontalCenter; color: Commons.Color.popups.text; font.family: Style.font.family; font.pixelSize: 26; text: backend.ready ? backend.greeting : (backend.running ? "starting…" : "backend stopped") }
+        Text { textFormat: Text.PlainText; anchors.horizontalCenter: parent.horizontalCenter; color: Commons.Color.muted; font.family: Style.font.family; font.pixelSize: 14; text: backend.time + " · " + backend.runtime }
+        Text { textFormat: Text.PlainText; anchors.horizontalCenter: parent.horizontalCenter; color: Commons.Color.urgent; font.family: Style.font.family; font.pixelSize: 12; visible: !backend.running && backend.lastError !== ""; text: backend.lastError; width: 380; elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter }
         Row {
           anchors.horizontalCenter: parent.horizontalCenter
           spacing: 10
           Rectangle {
             width: 120; height: 36; color: ma.containsMouse ? Style.hoverFill : Style.normalFill; border.color: Style.normalBorderColor; radius: Style.cornerRadius
-            Text { anchors.centerIn: parent; color: Commons.Color.popups.text; font.family: Style.font.family; text: backend.running ? "+1" : "restart" }
+            Text { textFormat: Text.PlainText; anchors.centerIn: parent; color: Commons.Color.popups.text; font.family: Style.font.family; text: backend.running ? "+1" : "restart" }
             MouseArea { id: ma; anchors.fill: parent; hoverEnabled: true; onClicked: backend.running ? backend.increment() : backend.restart() }
           }
           Rectangle {
             width: 120; height: 36; color: ma2.containsMouse ? Style.hoverFill : Style.normalFill; border.color: Style.normalBorderColor; radius: Style.cornerRadius
-            Text { anchors.centerIn: parent; color: Commons.Color.popups.text; font.family: Style.font.family; text: "close" }
+            Text { textFormat: Text.PlainText; anchors.centerIn: parent; color: Commons.Color.popups.text; font.family: Style.font.family; text: "close" }
             MouseArea { id: ma2; anchors.fill: parent; hoverEnabled: true; onClicked: root.dismiss() }
           }
         }

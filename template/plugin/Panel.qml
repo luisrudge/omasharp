@@ -76,6 +76,7 @@ Item {
 
           Text {
             anchors.horizontalCenter: parent.horizontalCenter
+            textFormat: Text.PlainText // backend text is never markup (Omarchy's rule for plugins)
             text: backend.ready ? backend.label : (backend.running ? "Starting…" : "Backend stopped: " + backend.lastError)
             color: Commons.Color.popups.text
             font.family: Style.font.family
