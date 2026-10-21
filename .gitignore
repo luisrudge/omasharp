@@ -4,3 +4,4 @@ artifacts/
 **/plugin/bin/
 **/plugin/Backend.qml
 *.upstream
+launch-video/
