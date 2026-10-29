@@ -96,6 +96,46 @@ class Strip(unittest.TestCase):
             "x=$(echo hi)\n"
         ))
 
+    def test_csharp_raw_holes(self):
+        self.check("A.cs", (
+            "var a = $\"\"\"{1 /* gone */} // kept\"\"\";\n"
+            "var b = $$\"\"\"{kept /* kept */} {{F(/* gone */2)}}\"\"\";\n"
+        ), (
+            "var a = $\"\"\"{1 } // kept\"\"\";\n"
+            "var b = $$\"\"\"{kept /* kept */} {{F(2)}}\"\"\";\n"
+        ))
+
+    def test_tokens_stay_apart(self):
+        self.check("a.cpp", "int f(){ return/*why*/0; }\nint g = h(/*x*/1) -/**/-2 /* a */ + 3;\n",
+                   "int f(){ return 0; }\nint g = h(1) - -2 + 3;\n")
+        self.check("Main.qml", "console.log(typeof/* x */missing);\n", "console.log(typeof missing);\n")
+
+    def test_shell_heredoc_delimiters(self):
+        self.check("a.sh", (
+            "cat <<'END-TEXT'\n"
+            "# kept\n"
+            "END-TEXT\n"
+            "cat <<123 # gone\n"
+            "# kept\n"
+            "123\n"
+            "cat <<\\EOF\n"
+            "# kept\n"
+            "EOF\n"
+            "echo $((1<<2)) \"$((3<<1))\" # gone\n"
+            "# gone\n"
+        ), (
+            "cat <<'END-TEXT'\n"
+            "# kept\n"
+            "END-TEXT\n"
+            "cat <<123\n"
+            "# kept\n"
+            "123\n"
+            "cat <<\\EOF\n"
+            "# kept\n"
+            "EOF\n"
+            "echo $((1<<2)) \"$((3<<1))\"\n"
+        ))
+
     def test_shell_by_shebang(self):
         self.check("pre-commit", "#!/bin/sh\n# gone\nexec true\n", "#!/bin/sh\nexec true\n")
 

@@ -80,8 +80,7 @@ class CLike:
                 if "@" in prefix:
                     return self.quoted(start, '"', escape=None, doubled=True, holes="$" in prefix)
                 if quotes >= 3:
-                    j = s.find('"' * quotes, i + len(prefix) + quotes)
-                    return len(s) if j < 0 else j + quotes
+                    return self.raw(i + len(prefix) + quotes, quotes, prefix.count("$"))
                 return self.quoted(start, '"', escape="\\", holes="$" in prefix)
             if c == "'":
                 return self.quoted(i + 1, "'", escape="\\")
@@ -103,6 +102,23 @@ class CLike:
             if c == "/" and (last == "" or last in "(,=:[!&|?{};+-*%<>~^" or last in REGEX_KEYWORDS):
                 return self.regex(i + 1)
         return None
+
+    def raw(self, i, quotes, dollars):
+        s, n = self.s, len(self.s)
+        while i < n:
+            if s.startswith('"' * quotes, i):
+                return i + quotes
+            if dollars and s[i] == "{":
+                run = len(s[i:]) - len(s[i:].lstrip("{"))
+                i += run
+                if run >= dollars:
+                    i = self.code(i, "}")
+                    for _ in range(dollars - 1):
+                        if s.startswith("}", i):
+                            i += 1
+            else:
+                i += 1
+        return n
 
     def quoted(self, i, quote, escape, doubled=False, holes=False):
         s, n = self.s, len(self.s)
@@ -158,7 +174,7 @@ class CLike:
 
 
 class Shell:
-    HEREDOC = re.compile(r"<<(-?)[ \t]*(['\"]?)([A-Za-z_]\w*)\2")
+    HEREDOC = re.compile(r"""<<(-?)[ \t]*((?:'[^'\n]*'|"[^"\n]*"|\\.|[^\s;&|<>()'"])+)""")
 
     def __init__(self, src):
         self.s = src
@@ -188,6 +204,8 @@ class Shell:
                 i = n if j < 0 else j + 1
             elif c == '"':
                 i = self.double(i + 1)
+            elif s.startswith("$((", i):
+                i = self.arithmetic(i + 3)
             elif s.startswith("$(", i):
                 i = self.code(i + 2, ")")
             elif c == "`":
@@ -205,12 +223,21 @@ class Shell:
             elif s.startswith("<<", i) and not s.startswith("<<<", i):
                 m = self.HEREDOC.match(s, i)
                 if m:
-                    self.heredocs.append((m.group(3), m.group(1) == "-"))
+                    word = re.sub(r"""'([^']*)'|"([^"]*)"|\\(.)""", lambda q: "".join(g or "" for g in q.groups()), m.group(2))
+                    self.heredocs.append((word, m.group(1) == "-"))
                     i = m.end()
                 else:
                     i += 2
             else:
                 i += 1
+        return i
+
+    def arithmetic(self, i):
+        s, n = self.s, len(self.s)
+        depth = 2
+        while i < n and depth:
+            depth += {"(": 1, ")": -1}.get(s[i], 0)
+            i += 1
         return i
 
     def double(self, i):
@@ -221,6 +248,8 @@ class Shell:
                 i += 2
             elif c == '"':
                 return i + 1
+            elif s.startswith("$((", i):
+                i = self.arithmetic(i + 3)
             elif s.startswith("$(", i):
                 i = self.code(i + 2, ")")
             elif c == "`":
@@ -287,6 +316,23 @@ def comments(path, src):
     return [(a, b) for a, b in found if not (a == 0 and src.startswith("#!")) and not DIRECTIVE.match(src[a:b])]
 
 
+def join_kept(body, gone):
+    kept = ""
+    gap = False
+    for ch, g in zip(body, gone):
+        if g:
+            gap = bool(kept)
+            continue
+        if gap:
+            if kept[-1].isspace() and ch.isspace():
+                continue
+            if not kept[-1].isspace() and not ch.isspace() and kept[-1] not in "([{" and ch not in ")]},;":
+                kept += " "
+            gap = False
+        kept += ch
+    return kept
+
+
 def strip(src, spans):
     gone = bytearray(len(src))
     for a, b in spans:
@@ -298,7 +344,7 @@ def strip(src, spans):
         end = pos + len(line)
         if any(gone[pos:end]):
             body = line.rstrip("\r\n")
-            kept = "".join(ch for k, ch in enumerate(body) if not gone[pos + k]).rstrip()
+            kept = join_kept(body, gone[pos : pos + len(body)]).rstrip()
             if not kept.strip():
                 dropped = True
                 pos = end
