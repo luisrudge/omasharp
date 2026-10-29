@@ -166,6 +166,21 @@ class Strip(unittest.TestCase):
             "echo $'it\\'s # kept' ${x:- #kept} ${y#\"}\"} \"${z:-#}\"\n"
         ))
 
+    def test_shell_literal_brace_in_expansion(self):
+        self.check("a.sh", "echo ${x:-{} ${y:-${z}} # gone\n# gone\necho '# kept'\n", "echo ${x:-{} ${y:-${z}}\necho '# kept'\n")
+
+    def test_cpp_continued_line_comment(self):
+        self.check("a.cpp", "int f() {\n    // gone \\\n    return 1;\n    return 0;\n}\n", "int f() {\n    return 0;\n}\n")
+
+    def test_regex_after_condition(self):
+        self.check("Main.qml", (
+            "if (ok) /[/*]/.test(s); // gone\n"
+            "var r = f(a) / 2 /* gone */\n"
+        ), (
+            "if (ok) /[/*]/.test(s);\n"
+            "var r = f(a) / 2\n"
+        ))
+
     def test_shell_by_shebang(self):
         self.check("pre-commit", "#!/bin/sh\n# gone\nexec true\n", "#!/bin/sh\nexec true\n")
 

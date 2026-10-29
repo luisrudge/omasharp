@@ -28,6 +28,8 @@ class CLike:
 
     def line_comment(self, i):
         j = self.s.find("\n", i)
+        while self.lang == "cpp" and j > 0 and self.s[j - 1] == "\\":
+            j = self.s.find("\n", j + 1)
         j = len(self.s) if j < 0 else j
         self.found.append((i, j))
         return j
@@ -42,6 +44,7 @@ class CLike:
         s, n = self.s, len(self.s)
         depth = 0
         nest = 0
+        parens = []
         last = ""
         while i < n:
             c = s[i]
@@ -68,6 +71,11 @@ class CLike:
                 elif c == ":" and self.lang == "cs" and depth == 0 and nest == 0 and ":" not in (s[i - 1], s[i + 1 : i + 2]):
                     j = s.find("}", i)
                     return n if j < 0 else j + 1
+            if self.lang == "js" and c == "(":
+                parens.append(last in ("if", "while", "for", "with"))
+            elif self.lang == "js" and c == ")" and parens:
+                i, last = i + 1, ";" if parens.pop() else ")"
+                continue
             j = self.literal(i, last)
             if j is not None:
                 i, last = j, "1"
@@ -258,7 +266,6 @@ class Shell:
 
     def parameter(self, i):
         s, n = self.s, len(self.s)
-        depth = 1
         while i < n:
             c = s[i]
             if c == "\\":
@@ -272,11 +279,12 @@ class Shell:
                 i = self.arithmetic(i + 3) if s.startswith("$((", i) else self.code(i + 2, ")")
             elif c == "`":
                 i = self.code(i + 1, "`")
+            elif s.startswith("${", i):
+                i = self.parameter(i + 2)
+            elif c == "}":
+                return i + 1
             else:
-                depth += {"{": 1, "}": -1}.get(c, 0)
                 i += 1
-                if depth == 0:
-                    return i
         return n
 
     def arithmetic(self, i):
