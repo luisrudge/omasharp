@@ -159,6 +159,13 @@ class Strip(unittest.TestCase):
             "echo '# kept'\n"
         ))
 
+    def test_shell_expansions(self):
+        self.check("a.sh", (
+            "echo $'it\\'s # kept' ${x:- #kept} ${y#\"}\"} \"${z:-#}\" # gone\n"
+        ), (
+            "echo $'it\\'s # kept' ${x:- #kept} ${y#\"}\"} \"${z:-#}\"\n"
+        ))
+
     def test_shell_by_shebang(self):
         self.check("pre-commit", "#!/bin/sh\n# gone\nexec true\n", "#!/bin/sh\nexec true\n")
 

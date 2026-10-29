@@ -208,11 +208,15 @@ class Shell:
                 j = n if j < 0 else j
                 self.found.append((i, j))
                 i = j
+            elif s.startswith("$'", i):
+                i = self.ansi(i + 2)
             elif c == "'":
                 j = s.find("'", i + 1)
                 i = n if j < 0 else j + 1
             elif c == '"':
                 i = self.double(i + 1)
+            elif s.startswith("${", i):
+                i = self.parameter(i + 2)
             elif s.startswith("$((", i):
                 i = self.arithmetic(i + 3)
             elif s.startswith("$(", i):
@@ -240,6 +244,40 @@ class Shell:
             else:
                 i += 1
         return i
+
+    def ansi(self, i):
+        s, n = self.s, len(self.s)
+        while i < n:
+            if s[i] == "\\":
+                i += 2
+            elif s[i] == "'":
+                return i + 1
+            else:
+                i += 1
+        return n
+
+    def parameter(self, i):
+        s, n = self.s, len(self.s)
+        depth = 1
+        while i < n:
+            c = s[i]
+            if c == "\\":
+                i += 2
+            elif c == "'":
+                j = s.find("'", i + 1)
+                i = n if j < 0 else j + 1
+            elif c == '"':
+                i = self.double(i + 1)
+            elif s.startswith("$(", i):
+                i = self.arithmetic(i + 3) if s.startswith("$((", i) else self.code(i + 2, ")")
+            elif c == "`":
+                i = self.code(i + 1, "`")
+            else:
+                depth += {"{": 1, "}": -1}.get(c, 0)
+                i += 1
+                if depth == 0:
+                    return i
+        return n
 
     def arithmetic(self, i):
         s, n = self.s, len(self.s)
