@@ -29,4 +29,9 @@ if [ -n "$sh" ] && have shellcheck; then
   # shellcheck disable=SC2086
   shellcheck -x $sh || fail=1
 fi
+src=$(files '*.cs' '*.qml' '*.js' '*.cpp' '*.h' '*.sh' '*.py' '*.csproj' '*.targets' '*.props' .githooks/pre-commit)
+if [ -n "$src" ] && have python3; then
+  # shellcheck disable=SC2086
+  python3 scripts/comments.py $src || fail=1
+fi
 exit $fail

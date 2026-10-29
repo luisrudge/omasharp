@@ -11,6 +11,10 @@ export XDG_DATA_HOME="$work/data"
 step() { printf '\n== %s\n' "$*"; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
+step "comment checker (scripts/comments.py): unit tests"
+python3 "$root/scripts/comments_test.py" >"$work/comments.log" 2>&1 || { cat "$work/comments.log"; fail "comment checker tests"; }
+tail -1 "$work/comments.log"
+
 step "analyzers: unit tests"
 dotnet run --project "$root/analyzers/Omasharp.Analyzers.Tests" >"$work/analyzers.log" 2>&1 || { cat "$work/analyzers.log"; fail "analyzer tests"; }
 tail -1 "$work/analyzers.log"
