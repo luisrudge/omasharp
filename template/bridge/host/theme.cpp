@@ -1,9 +1,3 @@
-// The Omarchy theme for window apps, as `theme` in QML: every key in
-// ~/.local/state/omarchy/current/theme/colors.toml (camelCased: dark_background
-// -> theme.darkBackground) plus theme.dark and theme.name (current/theme.name, e.g.
-// "tokyo-night"; "" without an Omarchy theme). Follows theme switches live.
-// (Shell panels get the same colors from the shell's own Color singleton.)
-// bridge/cs/Theme.cs reads the same file for C#: keep defaults and parsing in step.
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -26,7 +20,6 @@ static QString camel(const QString &key) {
 }
 
 static void load(QQmlPropertyMap *theme, const QString &current) {
-    // Defaults for machines without an Omarchy theme.
     QVariantHash v{{"mode", "dark"}, {"background", "#1a1b26"}, {"foreground", "#a9b1d6"}, {"accent", "#7aa2f7"}, {"selection", "#292e42"}, {"muted", "#414868"}, {"lighterBackground", "#24283b"}};
     QFile f(current + "/theme/colors.toml");
     if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -54,9 +47,6 @@ QQmlPropertyMap *createTheme(QObject *parent) {
     auto *theme = new Theme(parent);
     const QString current = QDir::homePath() + "/.local/state/omarchy/current";
     load(theme, current);
-    // Omarchy swaps current/theme for a new directory on a theme change and rewrites
-    // current/theme.name, so watch current/ as well as the theme directory and both files,
-    // and re-add the watches after each change.
     auto *watcher = new QFileSystemWatcher(theme);
     auto rewatch = [watcher, current] {
         for (const QString &p : {current, current + "/theme", current + "/theme/colors.toml", current + "/theme.name"})

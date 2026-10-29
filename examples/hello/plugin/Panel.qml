@@ -2,16 +2,15 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import qs.Commons
-import qs.Commons as Commons // Qt 6.12 has its own Color type: the shell palette is Commons.Color
+import qs.Commons as Commons
 
-// A shell panel whose logic is C# (Backend.cs), running as a child process.
 Item {
   id: root
 
   property var shell: null
   property var manifest: null
   property bool opened: false
-  property string screenName: ""   // payload {"screen": "<monitor>"}; default: focused monitor
+  property string screenName: ""
 
   function open(payloadJson) {
     try { screenName = JSON.parse(payloadJson || "{}").screen || "" } catch (e) { screenName = "" }
@@ -20,7 +19,6 @@ Item {
   function close() { opened = false }
   function dismiss() { shell ? shell.hide(manifest.id) : close() }
 
-  // Test hooks for `omarchy-shell shell call omasharp-hello <method> <arg>`.
   function state() { return JSON.stringify({ ready: backend.ready, running: backend.running, count: backend.count, greeting: backend.greeting, runtime: backend.runtime, lastError: backend.lastError, lastCallError: root.lastCallError }) }
   function press(what) {
     if (what === "increment") backend.increment()

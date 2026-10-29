@@ -1,8 +1,4 @@
 #if OMASHARP_NATIVE && OMASHARP_DEV
-// Dev mode (Debug builds of window apps): `dotnet run` and the skill's check.sh start
-// the Omasharp host, which runs this Main on the normal .NET runtime through hostfxr.
-// Main hands the bridge's function table back to the host, which then runs Qt on
-// this (the main) thread.
 using System.Runtime.InteropServices;
 
 namespace Omasharp;

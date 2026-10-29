@@ -1,19 +1,22 @@
 #!/bin/sh
-# run.sh: a private Omasharp, packed from this checkout, to verify changes the way users meet them
-# (dotnet new omarchy-app, then the app's own check.sh). Like scripts/test.sh, it never touches your
-# installed templates, NuGet sources, data or screen.
-#   run.sh setup                 pack the analyzers and the template into a new run folder; prints its path
-#   run.sh new RUN NAME [ARGS]   dotnet new omarchy-app -n NAME [ARGS] in RUN (e.g. --kind panel); prints the app's path
-#   run.sh doctor RUN            is RUN worth driving: packed from the checkout as it is now, tools present
-#   run.sh keep RUN APP LABEL    copy APP's last check (obj/shot.png, obj/shot.txt, logs) to the evidence folder
-#   run.sh cleanup RUN           remove RUN and its analyzers package from the NuGet cache; evidence stays
-# Evidence: ${TMPDIR:-/tmp}/omasharp-verify-evidence/<run>/<label>/
 set -eu
+usage() {
+  cat <<'EOF'
+run.sh: a private Omasharp, packed from this checkout, to verify changes the way users meet them
+(dotnet new omarchy-app, then the app's own check.sh). Like scripts/test.sh, it never touches your
+installed templates, NuGet sources, data or screen.
+  run.sh setup                 pack the analyzers and the template into a new run folder; prints its path
+  run.sh new RUN NAME [ARGS]   dotnet new omarchy-app -n NAME [ARGS] in RUN (e.g. --kind panel); prints the app's path
+  run.sh doctor RUN            is RUN worth driving: packed from the checkout as it is now, tools present
+  run.sh keep RUN APP LABEL    copy APP's last check (obj/shot.png, obj/shot.txt, logs) to the evidence folder
+  run.sh cleanup RUN           remove RUN and its analyzers package from the NuGet cache; evidence stays
+Evidence: ${TMPDIR:-/tmp}/omasharp-verify-evidence/<run>/<label>/
+EOF
+}
 root=$(cd "$(dirname "$0")/../../../.." && pwd)
 evidence_root=${TMPDIR:-/tmp}/omasharp-verify-evidence
 export DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1
 die() { echo "run.sh: $*" >&2; exit 1; }
-# What a run packs: the template (bridge, skill), the analyzers and the package project.
 sources() { (cd "$root" && find template analyzers/Omasharp.Analyzers pack -type f ! -path '*/bin/*' ! -path '*/obj/*' -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1); }
 run_dir() {
   [ -n "${1:-}" ] || die "which run? (the folder 'run.sh setup' printed)"
@@ -24,13 +27,11 @@ run_dir() {
 case ${1:-} in
 setup)
   run=$(mktemp -d "${TMPDIR:-/tmp}/omasharp-verify.XXXXXX")
-  # A version of the analyzers package for this run only (lowercase: NuGet's cache folders are).
   v=0.0.0-verify.$(basename "$run" | sed 's/^omasharp-verify\.//' | tr '[:upper:]' '[:lower:]')
   sources > "$run/sources"
   dotnet pack "$root/analyzers/Omasharp.Analyzers" -o "$run/pkg" -p:Version="$v" -v quiet -nologo > "$run/setup.log" 2>&1 || { tail -20 "$run/setup.log"; die "packing the analyzers failed"; }
   dotnet pack "$root/pack" -o "$run/pkg" -v quiet -nologo >> "$run/setup.log" 2>&1 || { tail -20 "$run/setup.log"; die "packing the template failed"; }
   dotnet new install "$run"/pkg/Omasharp.Templates.*.nupkg --debug:custom-hive "$run/hive" >> "$run/setup.log" 2>&1 || { tail -20 "$run/setup.log"; die "installing the template into the run's hive failed"; }
-  # Apps made in the run find this package (NuGet.config) at this version (Directory.Build.props).
   printf '<configuration><packageSources><add key="omasharp-verify" value="%s" /></packageSources></configuration>\n' "$run/pkg" > "$run/NuGet.config"
   printf '<Project><PropertyGroup><OmasharpAnalyzersVersion>%s</OmasharpAnalyzersVersion></PropertyGroup></Project>\n' "$v" > "$run/Directory.Build.props"
   mkdir -p "$run/data" "$run/home"
@@ -78,5 +79,5 @@ cleanup)
   rmdir "${cache%/}/omasharp.analyzers" 2> /dev/null || true
   echo "removed $run (evidence, if any: $evidence_root/$(basename "$run")/)"
   ;;
-*) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; [ "${1:-}" = -h ] || [ "${1:-}" = --help ] ;;
+*) usage; [ "${1:-}" = -h ] || [ "${1:-}" = --help ] ;;
 esac

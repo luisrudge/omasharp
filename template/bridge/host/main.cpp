@@ -1,14 +1,3 @@
-// The Omasharp host: runs Main.qml with the app's C# Backend exposed to QML as
-// `backend`. Properties live in a QQmlPropertyMap (so bindings work); methods are
-// JS functions on the same map (backend.increment(), backend.add(1, 2)).
-//
-// The C# side is loaded in-process:
-//   release  lib<exe name>.so next to the executable, compiled with native AOT
-//   dev      --dev <App.dll>: the normal .NET runtime through hostfxr (devhost.cpp);
-//            the app's managed Main calls back into omasharp_host_run()
-// QML comes from <exe name>.rcc next to the executable (the app's QML, fonts and
-// images, built by rcc), or from --qml-dir <dir> (dev). The host itself is the
-// same binary for every app: built once per machine and Qt version.
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -55,7 +44,6 @@ class Backend : public QQmlPropertyMap {
 public:
     explicit Backend(QObject *parent) : QQmlPropertyMap(this, parent) {}
 
-    // backend.call("name", [args]); the named functions on the map wrap this.
     Q_INVOKABLE QVariant call(const QString &name, const QVariantList &args = {}) {
         int err = 0;
         const QByteArray argsJson = QJsonDocument(QJsonArray::fromVariantList(args)).toJson(QJsonDocument::Compact);
@@ -68,7 +56,6 @@ public:
         return fromJson(r);
     }
 
-    // Async C# methods (Task, Task<T>): QML gets a Promise, settled when C# reports back.
     QHash<long long, QJSValue> pending;
     QJSValue makeDeferred;
     QJSValue deferred(long long id) {
@@ -89,11 +76,9 @@ public:
     }
 
 signals:
-    // C# called Raise(name, value).
     void raised(const QString &name, const QVariant &value);
 
 protected:
-    // QML assigned backend.<key>: hand it to C#, then keep whatever C# ended up with.
     QVariant updateValue(const QString &key, const QVariant &input) override {
         int err = 0;
         const QByteArray name = key.toUtf8();
@@ -146,12 +131,12 @@ static bool loadNative(const QString &exe) {
     return api != nullptr;
 }
 
-int runManaged(const char *dll, const char *exe);                               // devhost.cpp
-QQmlPropertyMap *createTheme(QObject *parent);                                  // theme.cpp
-void startTextDump(QQmlApplicationEngine &engine);                              // textdump.cpp
-void omasharpShowDrawing(const char *name, const unsigned char *data, int len); // drawview.cpp
-void registerDrawView();                                                        // drawview.cpp
-double omasharpMonoAdvance();                                                   // drawview.cpp
+int runManaged(const char *dll, const char *exe);
+QQmlPropertyMap *createTheme(QObject *parent);
+void startTextDump(QQmlApplicationEngine &engine);
+void omasharpShowDrawing(const char *name, const unsigned char *data, int len);
+void registerDrawView();
+double omasharpMonoAdvance();
 
 static int s_argc;
 static char **s_argv;
@@ -162,7 +147,6 @@ static QString option(const char *name) {
     return {};
 }
 
-// Runs the app once the C# side is loaded. In dev mode the managed Main calls this.
 extern "C" __attribute__((visibility("default"))) int omasharp_host_run(const omasharp_api *loaded) {
     api = loaded;
     if (api->version != OMASHARP_ABI) {
@@ -176,12 +160,11 @@ extern "C" __attribute__((visibility("default"))) int omasharp_host_run(const om
     const QJsonObject info = QJsonDocument::fromJson(take(api->app_info())).object();
     const QString id = info.value("id").toString();
     app.setApplicationName(id);
-    app.setDesktopFileName(id); // the Wayland app_id, which window rules match on
+    app.setDesktopFileName(id);
     app.setWindowIcon(QIcon::fromTheme(id));
 
     Backend map(&app);
     backend = &map;
-    // The app's own arguments: Qt already removed its options; drop ours (dev mode).
     QJsonArray args;
     const QStringList all = app.arguments();
     for (int i = 1; i < all.size(); i++) {
@@ -213,7 +196,6 @@ extern "C" __attribute__((visibility("default"))) int omasharp_host_run(const om
         for (const QQmlError &w : warnings) qWarning().noquote() << w.toString();
     });
 
-    // One JS function per C# method, so QML can write backend.increment().
     const QJSValue makeMethod = engine.evaluate(QStringLiteral(
         "(function(b, n) { return function() { return b.call(n, Array.prototype.slice.call(arguments)) } })"));
     const QJSValue self = engine.newQObject(&map);
@@ -249,10 +231,6 @@ extern "C" __attribute__((visibility("default"))) int omasharp_host_run(const om
 int main(int argc, char *argv[]) {
     s_argc = argc;
     s_argv = argv;
-    // Omarchy sets QT_QPA_PLATFORMTHEME=gtk3 for every Qt app, which loads GTK 3 into the
-    // process: about 55 ms before the window. These apps draw their own look; the portal
-    // theme still gives the desktop's file chooser and colour scheme. OMASHARP_PLATFORMTHEME
-    // overrides (set it to gtk3 to keep GTK's).
     const QByteArray theme = qgetenv("OMASHARP_PLATFORMTHEME");
     if (!theme.isEmpty())
         qputenv("QT_QPA_PLATFORMTHEME", theme);
@@ -260,7 +238,7 @@ int main(int argc, char *argv[]) {
         qputenv("QT_QPA_PLATFORMTHEME", "xdgdesktopportal");
     const QString dll = option("--dev");
     if (!dll.isEmpty() || !option("--qml-dir").isEmpty())
-        qputenv("QT_FORCE_STDERR_LOGGING", "1"); // dev: QML errors to the terminal, not the journal
+        qputenv("QT_FORCE_STDERR_LOGGING", "1");
     if (!dll.isEmpty()) return runManaged(QFile::encodeName(dll).constData(), QFile::encodeName(exePath()).constData());
     if (!loadNative(exePath())) return 1;
     return omasharp_host_run(api);

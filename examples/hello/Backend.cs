@@ -1,5 +1,3 @@
-// The app's logic. The same file runs in a window app (in-process, native AOT
-// .so) and in an Omarchy shell panel (child process over JSON lines).
 using Omasharp;
 
 public sealed class Backend : BackendBase, IDisposable
@@ -10,7 +8,6 @@ public sealed class Backend : BackendBase, IDisposable
 
     public Backend()
     {
-        // Fires on a thread-pool thread; the bridge moves the change to the UI thread.
         _clock = new Timer(_ => Notify(nameof(Time)), null, 1000, 1000);
     }
 
@@ -28,15 +25,13 @@ public sealed class Backend : BackendBase, IDisposable
         for (int i = 0; i < times; i++)
         {
             await Task.Delay(200);
-            Count++; // back on the UI thread after await
+            Count++;
         }
     }
 
     public void Fail() => throw new InvalidOperationException("Fail() was called");
 
-    // Crash test: an unhandled exception on a background thread ends the process.
     public void Crash() => new Thread(() => throw new InvalidOperationException("crash test")).Start();
 
-    // The bridge calls this when the app exits (window closed, or the shell closed the panel).
     public void Dispose() => _clock.Dispose();
 }

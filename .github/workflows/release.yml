@@ -1,15 +1,12 @@
 name: Release
 
-# Push a tag that matches template/bridge/VERSION, e.g. `git tag v0.1.0 && git push origin v0.1.0`.
-# The template package goes to the GitHub release and to nuget.org, through nuget.org trusted
-# publishing (no stored API key). There are no app binaries to ship: apps are built by their authors.
 on:
   push:
     tags: ['v*']
 
 permissions:
-  contents: write # the GitHub release; only the step that creates it gets the token
-  id-token: write # a short-lived GitHub token, exchanged for a one-hour nuget.org key
+  contents: write
+  id-token: write
 
 jobs:
   release:
@@ -27,7 +24,6 @@ jobs:
           test "v$(cat template/bridge/VERSION)" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME != v$(cat template/bridge/VERSION)"; exit 1; }
       - name: Test
         run: sh scripts/test.sh
-      # Two packages, one version: Omasharp.Analyzers (which every generated app references) and the template.
       - name: Pack
         run: |
           dotnet pack analyzers/Omasharp.Analyzers -o artifacts
@@ -37,17 +33,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          # A tag with a suffix (v0.1.0-rc.1) is a pre-release.
           pre=; case "$GITHUB_REF_NAME" in *-*) pre=--prerelease ;; esac
           gh release create "$GITHUB_REF_NAME" artifacts/*.nupkg --title "$GITHUB_REF_NAME" --generate-notes $pre
-      # Matches the trusted publishing policy on nuget.org (owner luisrudge, this repo, release.yml).
       - name: nuget.org login
         uses: NuGet/login@v1
         id: login
         with:
           user: luisrudge
       - name: nuget.org
-        # The analyzers first: apps made from the new template restore them.
         run: |
           for p in artifacts/Omasharp.Analyzers.*.nupkg artifacts/Omasharp.Templates.*.nupkg; do
             dotnet nuget push "$p" --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate

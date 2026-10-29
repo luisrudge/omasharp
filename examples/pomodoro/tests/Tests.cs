@@ -1,6 +1,3 @@
-// Tests for Backend.cs. Plain C#: no Qt, no window. Run: dotnet run --project tests
-// The bridge code refers to the app's backend class as AppBackend (the app build generates
-// this alias from <BackendType> in the csproj; the tests have to say it themselves).
 global using AppBackend = Backend;
 
 var failures = 0;

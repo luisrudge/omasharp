@@ -1,8 +1,3 @@
-<!-- Omasharp bridge build glue. Import from the app's .csproj after setting:
-       OmarchyKind  window (in-process bridge, libapp.so) | panel or bar-widget (shell plugins: QML in
-                    omarchy-shell, the backend a stdio child process)
-       AppId        Wayland app_id / plugin id (default: lowercase project name)
-       BackendType  the class exposed to QML as `backend` (default: Backend) -->
 <Project>
   <PropertyGroup>
     <OmarchyKind Condition="'$(OmarchyKind)' == ''">window</OmarchyKind>
@@ -22,35 +17,22 @@
     <PublishAot>true</PublishAot>
   </PropertyGroup>
 
-  <!-- Lint: warnings fail the build, with .NET's recommended analyzers, the native AOT ones and
-       Omasharp's own (Omasharp.Analyzers, OMASHARP001...: names QML can't take, members it can't
-       see, setters that don't tell QML, ...). Exceptions, each with its reason, go in .editorconfig.
-       The app's .csproj can turn them down: OmasharpWarningsAsErrors=false (warnings stay warnings),
-       AnalysisLevel, EnableAotAnalyzer/EnableTrimAnalyzer, OmasharpAnalyzers=false (no Omasharp rules, and
-       then CA1822 asks to make backend members static: QML would lose them). -->
   <PropertyGroup>
-    <!-- Own switch: the SDK has already set TreatWarningsAsErrors=false by the time this runs. -->
     <TreatWarningsAsErrors Condition="'$(OmasharpWarningsAsErrors)' != 'false'">true</TreatWarningsAsErrors>
     <AnalysisLevel Condition="'$(AnalysisLevel)' == ''">10.0-recommended</AnalysisLevel>
-    <!-- Native AOT problems (IL2xxx/IL3xxx) on every build, dev ones too, not only at publish. -->
     <EnableAotAnalyzer Condition="'$(EnableAotAnalyzer)' == ''">true</EnableAotAnalyzer>
     <EnableTrimAnalyzer Condition="'$(EnableTrimAnalyzer)' == ''">true</EnableTrimAnalyzer>
     <OmasharpVersion>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)VERSION').Trim())</OmasharpVersion>
     <OmasharpAnalyzersVersion Condition="'$(OmasharpAnalyzersVersion)' == ''">$(OmasharpVersion)</OmasharpAnalyzersVersion>
   </PropertyGroup>
   <ItemGroup Condition="'$(OmasharpAnalyzers)' != 'false'">
-    <!-- Lets the analyzers find the backend class when it doesn't derive from BackendBase. -->
     <CompilerVisibleProperty Include="BackendType" />
     <PackageReference Include="Omasharp.Analyzers" Version="$(OmasharpAnalyzersVersion)" PrivateAssets="all" Condition="'$(OmasharpAnalyzersProject)' == ''" />
-    <!-- Omasharp's own repo: its examples use the analyzers from source. -->
     <ProjectReference Include="$(OmasharpAnalyzersProject)" Condition="'$(OmasharpAnalyzersProject)' != ''"
       OutputItemType="Analyzer" ReferenceOutputAssembly="false" Private="false"
       GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishAot;OmarchyKind" />
   </ItemGroup>
 
-  <!-- Faster native AOT builds: no DWARF (managed stack traces still work), strip at link
-       time instead of an objcopy pass, and link with lld when it's installed.
-       Measured on a small app: native link 630 ms -> 75 ms, ILC about -0.2 s. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <NativeDebugSymbols>false</NativeDebugSymbols>
     <StripSymbols>false</StripSymbols>
@@ -60,7 +42,6 @@
     <LinkerArg Include="-s" />
   </ItemGroup>
 
-  <!-- Dev builds run on whatever .NET runtime the SDK has. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <RollForward>LatestMajor</RollForward>
     <DefineConstants>$(DefineConstants);OMASHARP_DEV</DefineConstants>
@@ -69,11 +50,9 @@
   <PropertyGroup Condition="'$(_OmasharpShellPlugin)' == 'true'">
     <OutputType>Exe</OutputType>
     <DefineConstants>$(DefineConstants);OMASHARP_STDIO</DefineConstants>
-    <!-- The shell plugin folder: publish puts the binary in its bin/ and writes its Backend.qml. -->
     <PluginDir Condition="'$(PluginDir)' == ''">$(MSBuildProjectDirectory)/plugin/</PluginDir>
     <PublishDir>$(PluginDir)bin/</PublishDir>
     <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
-    <!-- Dev mode: the plugin runs in its own Quickshell (not in omarchy-shell), backend on JIT. -->
     <_PanelDev>$(MSBuildProjectDirectory)/obj/panel-dev</_PanelDev>
     <_PanelHarness>dev-shell.qml</_PanelHarness>
     <_PanelHarness Condition="'$(OmarchyKind)' == 'bar-widget'">dev-bar.qml</_PanelHarness>
@@ -81,9 +60,7 @@
 
   <PropertyGroup Condition="'$(OmarchyKind)' == 'window'">
     <OutputType>Library</OutputType>
-    <!-- Release: the native AOT library is lib<AppId>.so, which the host <AppId> loads. -->
     <TargetName Condition="'$(Configuration)' == 'Release'">lib$(AppId)</TargetName>
-    <!-- Debug = dev mode: a managed Main run by the host through hostfxr (dotnet run, check.sh). -->
     <OutputType Condition="'$(Configuration)' == 'Debug'">Exe</OutputType>
     <UseAppHost Condition="'$(Configuration)' == 'Debug'">false</UseAppHost>
     <NativeLib>Shared</NativeLib>
@@ -95,25 +72,19 @@
   </PropertyGroup>
 
   <ItemGroup Condition="'$(OmarchyKind)' == 'window'">
-    <!-- Packed into <AppId>.rcc: Main.qml at the root, other files at their relative paths. -->
     <QmlResource Include="**/*.qml;fonts/**;images/**;qtquickcontrols2*.conf" Exclude="bin/**;obj/**;plugin/**;bridge/**;tests/**;$(DefaultItemExcludes)" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- When bridge/ sits inside the app (the template), the default glob already has these. -->
     <Compile Remove="$(OmasharpDir)cs/*.cs" />
     <Compile Include="$(OmasharpDir)cs/*.cs" Link="bridge/%(Filename)%(Extension)" />
     <Compile Include="$(IntermediateOutputPath)AppInfo.g.cs" />
   </ItemGroup>
 
-  <!-- Keep the app's own types whole under AOT, so its classes and records can be sent to QML as
-       objects (reflection over their public properties). Rooted by path: the release assembly file
-       is lib<AppId>.dll, so its file name isn't its assembly name. -->
   <Target Name="OmasharpRootAppAssembly" BeforeTargets="WriteIlcRspFileForCompilation">
     <ItemGroup><TrimmerRootAssembly Include="@(IntermediateAssembly->'%(FullPath)')" /></ItemGroup>
   </Target>
 
-  <!-- AppId names files and folders (Install removes them), so keep it to a safe shape. -->
   <Target Name="OmasharpCheckAppId" BeforeTargets="OmasharpAppInfo">
     <Error Condition="'$(OmarchyKind)' != 'window' and '$(_OmasharpShellPlugin)' != 'true'"
            Text="OmarchyKind '$(OmarchyKind)' must be window, panel or bar-widget." />
@@ -127,9 +98,6 @@
       Lines="global using AppBackend = global::$(BackendType)%3B;namespace Omasharp%3B static class AppInfo { public const string Id = &quot;$(AppId)&quot;%3B public const string Name = &quot;$(AssemblyName)&quot;%3B }" />
   </Target>
 
-  <!-- The host (C++, qmake + g++) is the same binary for every app, so it's built once per
-       machine, Qt version and host source, into ~/.cache/omasharp/host-<key>/, and copied.
-       An app's own QML, fonts and images go into <AppId>.rcc next to it. -->
   <Target Name="OmasharpCachedHost" Condition="'$(OmarchyKind)' == 'window'">
     <PropertyGroup>
       <_Qmake>$(Qmake)</_Qmake>
@@ -149,12 +117,10 @@
       <OmasharpHost>$(OmasharpHostDir)omasharp-host</OmasharpHost>
     </PropertyGroup>
     <Message Condition="!Exists('$(OmasharpHost)')" Importance="high" Text="Building the Omasharp host once for Qt $(_QtVersion) (about 7 s)..." />
-    <!-- Built in a private folder and moved into place, so parallel first builds can't collide. -->
     <Exec Condition="!Exists('$(OmasharpHost)')" StandardOutputImportance="low"
       Command="set -e; mkdir -p &quot;$(_Cache)/omasharp&quot;; t=%24(mktemp -d &quot;$(_Cache)/omasharp/.build.XXXXXX&quot;); cd &quot;$t&quot;; $(_Qmake) &quot;$(OmasharpDir)host/host.pro&quot; TARGET=omasharp-host DESTDIR=&quot;$t/out&quot; &amp;&amp; make -j$([System.Environment]::ProcessorCount); mkdir -p &quot;$(OmasharpHostDir)&quot;; mv -f &quot;$t/out/omasharp-host&quot; &quot;$(OmasharpHost)&quot;; rm -rf &quot;$t&quot;" />
   </Target>
 
-  <!-- Window apps, release: <AppId> (the cached host) + lib<AppId>.so (AOT) + <AppId>.rcc. -->
   <Target Name="OmasharpHost" AfterTargets="Publish" DependsOnTargets="OmasharpCachedHost" Condition="'$(OmarchyKind)' == 'window'">
     <PropertyGroup>
       <_RccDir>$(MSBuildProjectDirectory)/$(IntermediateOutputPath)rcc/</_RccDir>
@@ -176,8 +142,6 @@
     <Message Importance="high" Text="$(AssemblyName) -> $(_PublishFull)$(AppId) (+ lib$(AppId).so, $(AppId).rcc)" />
   </Target>
 
-  <!-- dotnet run in Debug: start the dev host (window) or the shell plugin harness.
-       Set late, once TargetPath is known. -->
   <Target Name="OmasharpRunArguments" BeforeTargets="ComputeRunArguments" DependsOnTargets="OmasharpCachedHost" Condition="'$(Configuration)' == 'Debug'">
     <PropertyGroup Condition="'$(OmarchyKind)' == 'window'">
       <RunCommand>$(OmasharpHost)</RunCommand>
@@ -189,7 +153,6 @@
     </PropertyGroup>
   </Target>
 
-  <!-- Dev mode: make sure the cached host exists after a Debug build. -->
   <Target Name="OmasharpDevHost" AfterTargets="Build" DependsOnTargets="OmasharpCachedHost" Condition="'$(OmarchyKind)' == 'window' and '$(Configuration)' == 'Debug'" />
 
   <Target Name="OmasharpQmlShim" AfterTargets="Publish" Condition="'$(_OmasharpShellPlugin)' == 'true'">
@@ -197,9 +160,6 @@
     <Message Importance="high" Text="$(AssemblyName) -> $(PluginDir) (bin/$(AssemblyName), Backend.qml)" />
   </Target>
 
-  <!-- Shell plugin dev mode: regenerate Backend.qml from the JIT build, and set up a standalone
-       Quickshell config that shows plugin/Panel.qml (or plugin/BarWidget.qml in a stand-in bar)
-       with the shell's theme (qs.Commons). -->
   <Target Name="OmasharpPanelDev" AfterTargets="Build" Condition="'$(_OmasharpShellPlugin)' == 'true' and '$(Configuration)' == 'Debug'">
     <PropertyGroup><_Dotnet>$(DOTNET_HOST_PATH)</_Dotnet><_Dotnet Condition="'$(_Dotnet)' == ''">dotnet</_Dotnet></PropertyGroup>
     <Exec Command="&quot;$(_Dotnet)&quot; &quot;$(MSBuildProjectDirectory)/$(OutputPath)$(AssemblyName).dll&quot; --qml-shim &quot;$(PluginDir)Backend.qml&quot;" />
@@ -212,9 +172,6 @@
     <Copy SourceFiles="$(OmasharpDir)shell/$(_PanelHarness);$(OmasharpDir)shell/TextDump.qml" DestinationFiles="$(_PanelDev)/shell.qml;$(_PanelDev)/TextDump.qml" SkipUnchangedFiles="true" />
   </Target>
 
-  <!-- The command that runs this build, for the Omasharp skill's check script: one argument per
-       line in obj/omasharp/launch. `dotnet build -t:OmasharpLaunch` (dev) or
-       `dotnet publish -t:OmasharpLaunch` (the native AOT release build) builds the app first. -->
   <PropertyGroup>
     <_LaunchDeps Condition="'$(Configuration)' == 'Release'">Publish;OmasharpCachedHost</_LaunchDeps>
     <_LaunchDeps Condition="'$(Configuration)' != 'Release'">Build;OmasharpCachedHost</_LaunchDeps>
@@ -237,17 +194,10 @@
     <WriteLinesToFile File="$(MSBuildProjectDirectory)/obj/omasharp/kind" Lines="$(OmarchyKind)" Overwrite="true" />
   </Target>
 
-  <!-- dotnet build -t:UpdateBridge: bring the bridge and the Omasharp skill from the installed
-       omarchy-app template (see bridge/update.sh: your customizations are kept, never overwritten). -->
   <Target Name="UpdateBridge">
-    <!-- High importance: the summary and any "is the template installed?" show at the default verbosity. -->
     <Exec Command="sh &quot;$(OmasharpDir)update.sh&quot; &quot;$(MSBuildProjectDirectory)&quot;" StandardOutputImportance="high" StandardErrorImportance="high" />
   </Target>
 
-  <!-- dotnet publish -t:Package (window apps): a release users install with one command, no sudo and
-       no .NET. artifacts/ gets <AppId>-linux-x64.tar.gz, SHA256SUMS and install.sh, the files of a
-       GitHub release (.github/workflows/release.yml uploads them for a v* tag). install.sh downloads
-       from github.com/<AppRepository> (owner/repo; in GitHub Actions, the repository it runs in). -->
   <PropertyGroup>
     <AppName Condition="'$(AppName)' == ''">$(AssemblyName)</AppName>
     <AppRepository Condition="'$(AppRepository)' == ''">$(GITHUB_REPOSITORY)</AppRepository>
@@ -255,17 +205,12 @@
     <_Stage>$(MSBuildProjectDirectory)/obj/omasharp/release/$(AppId)/</_Stage>
   </PropertyGroup>
 
-  <!-- bridge/install.sh with this app's values (the name goes between single quotes). -->
   <Target Name="OmasharpInstaller" DependsOnTargets="OmasharpCheckAppId">
     <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(_Installer)'))" />
     <Exec EnvironmentVariables="ID=$(AppId);REPO=$(AppRepository);NAME=$(AppName)"
       Command="awk 'function all(s, a, b,   i, r) { r = &quot;&quot;; while ((i = index(s, a)) &gt; 0) { r = r substr(s, 1, i - 1) b; s = substr(s, i + length(a)) } return r s } BEGIN { n = all(ENVIRON[&quot;NAME&quot;], &quot;\x27&quot;, &quot;\x27\\\x27\x27&quot;) } { print all(all(all($0, &quot;@APPID@&quot;, ENVIRON[&quot;ID&quot;]), &quot;@REPO@&quot;, ENVIRON[&quot;REPO&quot;]), &quot;@NAME@&quot;, n) }' &quot;$(OmasharpDir)install.sh&quot; &gt; &quot;$(_Installer)&quot;" />
   </Target>
 
-  <!-- The release's folder, obj/omasharp/release/<AppId>/: app/ (what goes into
-       ~/.local/share/omasharp/<AppId>/), install.sh, the launcher entry (app.desktop if the app has
-       one, else a minimal one; Exec="@EXEC@" until install.sh writes the installed binary there),
-       the icon and the version. -->
   <Target Name="OmasharpStage" DependsOnTargets="OmasharpInstaller;Publish" Condition="'$(OmarchyKind)' == 'window'">
     <PropertyGroup>
       <_EntrySource>$(MSBuildProjectDirectory)/app.desktop</_EntrySource>
@@ -300,8 +245,6 @@
     <Message Importance="high" Condition="'$(AppRepository)' == ''" Text="No AppRepository (owner/repo), so this install.sh can only install from an unpacked $(_Asset). GitHub Actions sets it; elsewhere, add &lt;AppRepository&gt; to the .csproj." />
   </Target>
 
-  <!-- dotnet publish -t:Install   (and -t:Uninstall): put the app where Omarchy finds it. A window
-       app installs the way its users do: the release's own install.sh, from obj/omasharp/release/. -->
   <Target Name="Install" DependsOnTargets="OmasharpCheckAppId;Publish;OmasharpStage">
     <PropertyGroup>
       <_PluginTarget>$(_Home)/.config/omarchy/plugins/$(AppId)</_PluginTarget>
@@ -310,9 +253,6 @@
       <_PluginFiles Include="$(PluginDir)**" />
     </ItemGroup>
     <Exec Condition="'$(OmarchyKind)' == 'window'" Command="sh &quot;$(_Stage)install.sh&quot;" StandardOutputImportance="high" />
-    <!-- shell plugins: copy the plugin folder into the shell's plugins and enable it. The installed
-         backend may be running (always, for a bar widget), so it's removed first: copying over a
-         running binary fails with "Text file busy", removing it doesn't. -->
     <Delete Condition="'$(_OmasharpShellPlugin)' == 'true'" Files="$(_PluginTarget)/bin/$(AssemblyName)" />
     <Copy Condition="'$(_OmasharpShellPlugin)' == 'true'" SourceFiles="@(_PluginFiles)" DestinationFiles="@(_PluginFiles->'$(_PluginTarget)/%(RecursiveDir)%(Filename)%(Extension)')" />
     <Exec Condition="'$(_OmasharpShellPlugin)' == 'true'" Command="chmod +x &quot;$(_PluginTarget)/bin/$(AssemblyName)&quot; &amp;&amp; for i in 1 2 3 4 5 6 7 8 9 10; do omarchy plugin enable $(AppId) &gt;/dev/null 2&gt;&amp;1 &amp;&amp; exit 0; omarchy-shell shell rescanPlugins &gt;/dev/null 2&gt;&amp;1; sleep 0.5; done; echo 'omarchy plugin enable $(AppId) failed' &gt;&amp;2; exit 1" />

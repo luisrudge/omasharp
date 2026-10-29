@@ -1,7 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Omasharp.Analyzers: compile-time checks for Omasharp apps (OMASHARP001...; see ../README.md).
-       Apps reference it through bridge/Omasharp.targets; it runs in the compiler only, nothing of it
-       ships in an app. Pack: dotnet pack analyzers/Omasharp.Analyzers -o artifacts -->
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>latest</LangVersion>
@@ -10,7 +7,6 @@
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>10.0-recommended</AnalysisLevel>
-    <!-- The package: the analyzer dll under analyzers/dotnet/cs, no dependencies. -->
     <PackageId>Omasharp.Analyzers</PackageId>
     <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../../template/bridge/VERSION').Trim())</Version>
     <Title>Omasharp analyzers</Title>
@@ -25,14 +21,10 @@
     <DevelopmentDependency>true</DevelopmentDependency>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
-    <!-- RS1030: the rules read property bodies from a symbol action; apps are small, so a fresh
-         semantic model per backend class costs nothing noticeable. -->
     <NoWarn>$(NoWarn);NU5128;RS1030</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <!-- 4.8: loads in every compiler from .NET 8 on. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
-    <!-- One copy of QML's names and reserved words, shared with the bridge. -->
     <Compile Include="../../template/bridge/cs/QmlNames.cs" Link="QmlNames.cs" />
     <None Include="$(OutputPath)$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <None Include="../README.md" Pack="true" PackagePath="/" />

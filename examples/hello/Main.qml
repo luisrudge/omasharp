@@ -13,7 +13,6 @@ Window {
     Text { color: "#565f89"; font.family: "monospace"; font.pixelSize: 14; text: "2 + 3 = " + backend.add(2, 3) }
   }
 
-  // Test hooks: OMASHARP_SELFTEST=1 exercises the bridge from QML and prints the results.
   Timer {
     interval: 300; running: Qt.application.arguments.indexOf("--selftest") >= 0
     onTriggered: {

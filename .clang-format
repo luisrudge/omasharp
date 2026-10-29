@@ -10,3 +10,4 @@ AllowShortLoopsOnASingleLine: true
 AllowShortBlocksOnASingleLine: Always
 AllowShortLambdasOnASingleLine: All
 AccessModifierOffset: -4
+FixNamespaceComments: false

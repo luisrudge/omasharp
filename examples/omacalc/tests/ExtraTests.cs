@@ -1,5 +1,3 @@
-// The tst_omacalc.cpp checks the mechanical translation skipped, by hand:
-// evaluateTokens, formatNumber and the Omarchy theme parsing.
 using OmacalcCs;
 static partial class Tests
 {

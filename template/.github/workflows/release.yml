@@ -1,23 +1,17 @@
 name: Release
 
-# Push a tag that matches <Version> in the .csproj: `git tag v0.1.0 && git push origin v0.1.0`.
-# The GitHub release gets what `dotnet publish -t:Package` makes: <AppId>-linux-x64.tar.gz,
-# SHA256SUMS and install.sh. Users install (and later update) the app with
-#   curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | sh
 on:
   push:
     tags: ['v*']
 
 permissions:
-  contents: write # the GitHub release
+  contents: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:
-      # From Omarchy's stable mirror, not Arch's: the app needs the Qt it was built with or newer,
-      # so it's built with the one every up-to-date Omarchy already has.
       - name: Install toolchain
         run: |
           echo 'Server = https://stable-mirror.omarchy.org/$repo/os/$arch' > /etc/pacman.d/mirrorlist
@@ -38,6 +32,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          # A tag with a suffix (v1.0.0-rc.1) is a pre-release, which releases/latest skips.
           pre=; case "$GITHUB_REF_NAME" in *-*) pre=--prerelease ;; esac
           gh release create "$GITHUB_REF_NAME" artifacts/* --title "$GITHUB_REF_NAME" --generate-notes $pre

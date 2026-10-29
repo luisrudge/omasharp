@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   test:
-    # Arch, like Omarchy: current Qt 6 (the native drawing needs Qt 6.7+) and .NET 10.
     runs-on: ubuntu-latest
     container: archlinux:latest
     steps:

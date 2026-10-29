@@ -3,8 +3,6 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Omasharp
 
-// The window. `backend` is Backend.cs; `theme` is the current Omarchy theme (follows theme
-// switches live). The three graphs are drawn in C# (Graph.cs) and shown with DrawView.
 ApplicationWindow {
   id: win
   width: 1100
@@ -17,18 +15,14 @@ ApplicationWindow {
 
   readonly property color dim: Qt.alpha(theme.foreground, 0.6)
   readonly property color well: Qt.alpha(theme.background, 0.6)
-  // Tiled next to another window (half the screen), everything tightens up to fit without scrolling.
   readonly property bool compact: width < 900
   readonly property int gap: compact ? 12 : 20
 
-  // Green, then yellow past 75 %, red past 90 %; `high` flips it for battery-style levels.
   function level(fraction, high) {
     const f = high ? 1 - fraction : fraction
     return f > 0.9 ? theme.red : f > 0.75 ? theme.yellow : theme.green
   }
 
-  // A first reading right away (rates need two), then one a second.
-  // Compact details put each "a  ·  b" part on its own line rather than wrapping mid-phrase.
   function lines(text) { return compact ? text.split("  ·  ").join("\n") : text }
 
   Timer { interval: 250; running: true; onTriggered: backend.tick() }
@@ -45,7 +39,6 @@ ApplicationWindow {
       id: content
       x: win.compact ? 16 : 28; y: x
       width: parent.width - 2 * x
-      // At least the window's height, so the graphs grow to fill a tall window.
       height: Math.max(implicitHeight, flick.height - 2 * y)
       spacing: win.gap
 
@@ -128,7 +121,6 @@ ApplicationWindow {
 
           Graph { source: "temp"; visible: backend.hasTemp; Layout.preferredHeight: win.compact ? 56 : 90 }
 
-          // A count model keeps the rows (and their bar animations) alive when only the readings change.
           Repeater {
             model: backend.fans.length
             ColumnLayout {
@@ -226,7 +218,6 @@ ApplicationWindow {
             Layout.topMargin: 4
             spacing: win.gap
 
-            // A battery: outlined body, a nub on the right, filled to the charge level.
             Item {
               Layout.preferredWidth: shell.width + 8; Layout.preferredHeight: shell.height
               Rectangle {
@@ -265,9 +256,8 @@ ApplicationWindow {
     }
   }
 
-  Shortcut { sequence: "Ctrl+Q"; onActivated: win.close() } // like omacalc; SUPER+W closes it too
+  Shortcut { sequence: "Ctrl+Q"; onActivated: win.close() }
 
-  // A panel with a coloured title, a big reading on the right and its contents below.
   component Card: Rectangle {
     id: card
     property string title
@@ -284,7 +274,6 @@ ApplicationWindow {
     border.color: Qt.alpha(theme.muted, 0.6)
     radius: 6
 
-    // A thin tint stripe along the top edge.
     Rectangle { x: 1; y: 1; width: parent.width - 2; height: 2; radius: 1; color: card.tint; opacity: 0.8 }
 
     ColumnLayout {
@@ -308,7 +297,6 @@ ApplicationWindow {
     }
   }
 
-  // A scrolling graph that C# draws; it tells the backend its size so the drawing fits.
   component Graph: Rectangle {
     property alias source: view.source
     Layout.fillWidth: true

@@ -1,5 +1,3 @@
-// The app's logic. QML sees this object as `backend` and calls Tick() once a second; each tick
-// reads /proc and /sys, updates the numbers and redraws the three graphs (Graph.cs).
 using System.Diagnostics;
 using System.Globalization;
 using Omasharp;
@@ -10,7 +8,6 @@ public sealed record FanSpeed(string Label, string Rpm, double Fraction);
 
 public sealed class Backend : BackendBase
 {
-    /// <summary>Samples kept per graph: two minutes.</summary>
     internal const int Samples = 120;
 
     readonly Queue<double> _cpuHistory = new(), _memHistory = new(), _downHistory = new(), _upHistory = new(), _tempHistory = new();
@@ -51,7 +48,6 @@ public sealed class Backend : BackendBase
 
     public bool HasTemp { get => _hasTemp; private set => Set(ref _hasTemp, value); }
     public double CpuTemp { get => _cpuTemp; private set => Set(ref _cpuTemp, value); }
-    /// <summary>The temperature the CPU throttles or shuts down at: the graph's top and the colour scale.</summary>
     public double TempLimit { get => _tempLimit; private set => Set(ref _tempLimit, value); }
     public string TempDetail { get => _tempDetail; private set => Set(ref _tempDetail, value); }
     public List<FanSpeed> Fans { get => _fans; private set => Set(ref _fans, value); }
@@ -65,7 +61,6 @@ public sealed class Backend : BackendBase
     public string BatteryTime { get => _batteryTime; private set => Set(ref _batteryTime, value); }
     public string BatteryDetail { get => _batteryDetail; private set => Set(ref _batteryDetail, value); }
 
-    /// <summary>QML reports each graph's size in pixels so the drawing fits it exactly.</summary>
     public void Resize(string graph, double width, double height)
     {
         _sizes[graph] = (width, height);
@@ -123,7 +118,6 @@ public sealed class Backend : BackendBase
 
     void SampleNetwork()
     {
-        // Count physical interfaces only: lo, docker, bridges and VPN tunnels would double-count traffic.
         var all = Probe.ParseNetDev(File.ReadAllText("/proc/net/dev"));
         var physical = all.Where(kv => Directory.Exists($"/sys/class/net/{kv.Key}/device")).ToList();
         double rx = physical.Sum(kv => kv.Value.Rx), tx = physical.Sum(kv => kv.Value.Tx);
@@ -150,7 +144,6 @@ public sealed class Backend : BackendBase
         foreach (var dir in dirs.Order(StringComparer.Ordinal))
         {
             var chip = ReadOr(Path.Combine(dir, "name"), "");
-            // Only CPU chips' temperatures matter; Apple's SMC alone has dozens of others.
             var cpuChip = chip is "coretemp" or "k10temp" or "zenpower" or "cpu_thermal";
             foreach (var input in Directory.GetFiles(dir, "*_input").Order(StringComparer.Ordinal))
             {
@@ -187,7 +180,6 @@ public sealed class Backend : BackendBase
             try
             {
                 var drive = new DriveInfo(mount);
-                // Like df: the reserved blocks count as neither used nor available.
                 double used = drive.TotalSize - drive.TotalFreeSpace, size = used + drive.AvailableFreeSpace;
                 if (drive.TotalSize <= 0) continue;
                 disks.Add(new DiskUsage(mount, device.Replace("/dev/mapper/", "", StringComparison.Ordinal).Replace("/dev/", "", StringComparison.Ordinal),
@@ -248,7 +240,6 @@ public sealed class Backend : BackendBase
         });
         Draw("temp", (d, w, h) =>
         {
-            // Same thresholds as the card's colour in Main.qml: yellow past 75 % of the limit, red past 90 %.
             var heat = CpuTemp / TempLimit;
             var color = heat > 0.9 ? Theme.Color("red", "#f7768e") : heat > 0.75 ? Theme.Color("yellow", "#e0af68") : Theme.Color("green", "#9ece6a");
             Graph.Area(d, [.. _tempHistory], Samples, TempLimit, w, h, color, 0.2);

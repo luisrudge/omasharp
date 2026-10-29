@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-# keys.py KEYS: type KEYS with wtype. Plain text is typed as is; {Key} and {Mod+Key} press keys:
-#   {Tab} {Enter} {Esc} {Up} {Down} {Left} {Right} {Backspace} {Delete} {Home} {End} {Space} {F5}
-#   {Ctrl+a} {Ctrl+Shift+z} {Alt+1} {Super+Return}       {Wait:500} pauses 500 ms       {{ types a literal {
 import os, re, sys
 
 ALIASES = {"enter": "Return", "return": "Return", "esc": "Escape", "escape": "Escape", "tab": "Tab",
@@ -11,7 +8,6 @@ ALIASES = {"enter": "Return", "return": "Return", "esc": "Escape", "escape": "Es
 MODS = {"ctrl": "ctrl", "control": "ctrl", "shift": "shift", "alt": "alt", "super": "logo", "logo": "logo", "win": "logo"}
 
 def text_args(text):
-    # wtype would read text starting with '-' as an option: press leading dashes as keys.
     out = []
     while text.startswith("-"): out += ["-k", "minus"]; text = text[1:]
     return out + ([text] if text else [])
@@ -38,5 +34,4 @@ def args_for(keys):
     if text: out += text_args(text)
     return out
 
-# -s 300: give the app time to load wtype's keymap first (otherwise the first key can arrive as Escape).
 os.execvp("wtype", ["wtype", "-s", "300", "-d", "30"] + args_for(sys.argv[1]))

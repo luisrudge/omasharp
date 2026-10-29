@@ -1,13 +1,11 @@
 import QtQuick
 
-// One keypad button. Numbers sit almost flush with the page, the operator
-// column lifts a step lighter, and equals inverts to the ink color.
 Rectangle {
     id: control
 
     property string label
     property string keyValue: label
-    property string kind: "number" // "number", "operator" or "equals"
+    property string kind: "number"
     property string iconName
     property color pageColor: "#101010"
     property color inkColor: "#eeeeee"
@@ -74,7 +72,6 @@ Rectangle {
             context.lineCap = "round";
             context.lineJoin = "round";
 
-            // The key cap: a rectangle whose left edge tapers to a point.
             context.beginPath();
             context.moveTo(notch, 1);
             context.lineTo(w - 1, 1);
@@ -84,8 +81,6 @@ Rectangle {
             context.closePath();
             context.stroke();
 
-            // The x inside, nudged left of the body's center so the tapered
-            // tip doesn't make it read as off-center.
             var cx = notch + (w - notch) * 0.435;
             var cy = h / 2;
             var arm = h * 0.18;

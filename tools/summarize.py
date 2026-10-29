@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# summarize.py BENCH.txt [label...]: median (min–max) per app per metric, as a Markdown table.
 import statistics, sys
 rows = {}
 for line in open(sys.argv[1]):

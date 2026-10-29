@@ -1,7 +1,4 @@
 #if OMASHARP_STDIO
-// Writes Backend.qml for shell plugins: a QML object with one property per C#
-// property and one function per method, kept in sync over the stdio protocol.
-// QML in a panel then reads like QML in a window app: backend.count, backend.increment().
 using System.Text;
 
 namespace Omasharp;
@@ -124,7 +121,7 @@ static class Shim
 
     static string QmlType(Type t)
     {
-        if (Nullable.GetUnderlyingType(t) != null) return "var"; // int? etc. can be null; int can't
+        if (Nullable.GetUnderlyingType(t) != null) return "var";
         if (t == typeof(string)) return "string";
         if (t == typeof(bool)) return "bool";
         if (t == typeof(int) || t == typeof(short) || t == typeof(byte)) return "int";

@@ -1,12 +1,9 @@
-// Parsers for the kernel's text files (/proc, /sys) and the formatting the UI shows.
-// Pure functions of their input, so the tests can feed them sample text.
 using System.Globalization;
 
 static class Probe
 {
     internal readonly record struct CpuTimes(ulong Idle, ulong Total);
 
-    /// <summary>/proc/stat: the "cpu" total line first, then one per core.</summary>
     internal static List<CpuTimes> ParseStat(string text)
     {
         var list = new List<CpuTimes>();
@@ -15,7 +12,6 @@ static class Probe
             if (!line.StartsWith("cpu", StringComparison.Ordinal)) continue;
             var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length < 5) continue;
-            // user nice system idle iowait irq softirq steal (guest time is already in user)
             ulong total = 0;
             for (var i = 1; i < Math.Min(parts.Length, 9); i++) total += ulong.Parse(parts[i], CultureInfo.InvariantCulture);
             var idle = ulong.Parse(parts[4], CultureInfo.InvariantCulture)
@@ -25,7 +21,6 @@ static class Probe
         return list;
     }
 
-    /// <summary>Busy percentage between two readings of the same CPU.</summary>
     internal static double Busy(CpuTimes before, CpuTimes after)
     {
         var total = (double)after.Total - before.Total;
@@ -33,7 +28,6 @@ static class Probe
         return total <= 0 ? 0 : Math.Clamp(100 * (total - idle) / total, 0, 100);
     }
 
-    /// <summary>/proc/meminfo in bytes, by key ("MemTotal", "MemAvailable", ...).</summary>
     internal static Dictionary<string, double> ParseMeminfo(string text)
     {
         var map = new Dictionary<string, double>();
@@ -48,7 +42,6 @@ static class Probe
         return map;
     }
 
-    /// <summary>/proc/net/dev: received and sent bytes per interface.</summary>
     internal static Dictionary<string, (double Rx, double Tx)> ParseNetDev(string text)
     {
         var map = new Dictionary<string, (double, double)>();
@@ -63,7 +56,6 @@ static class Probe
         return map;
     }
 
-    /// <summary>/proc/mounts: real block devices (no loop devices), each once, at its shortest mount path.</summary>
     internal static List<(string Device, string Mount)> ParseMounts(string text)
     {
         var byDevice = new Dictionary<string, string>();
@@ -82,7 +74,6 @@ static class Probe
 
     internal sealed record BatteryInfo(int Percent, string Status, double? HoursLeft, double? Health, int Cycles, double? Watts);
 
-    /// <summary>A /sys/class/power_supply/BAT*/uevent file. Batteries report energy (µWh, µW) or charge (µAh, µA).</summary>
     internal static BatteryInfo? ParseBattery(string uevent)
     {
         var v = new Dictionary<string, string>();
@@ -101,7 +92,6 @@ static class Probe
         var percent = (int)(Num("CAPACITY") ?? (now is not null && full > 0 ? 100 * now / full : 0) ?? 0);
 
         double? hours = null;
-        // A trickle (charger holding at its limit, sensor noise) gives estimates of days: leave those out.
         if (rate > 0 && now is not null)
         {
             if (status == "Discharging") hours = now / rate;
@@ -114,17 +104,14 @@ static class Probe
         return new BatteryInfo(Math.Clamp(percent, 0, 100), status, hours, health, (int)(Num("CYCLE_COUNT") ?? 0), watts);
     }
 
-    /// <summary>One hwmon reading: °C for temperatures, rpm for fans.</summary>
     internal sealed record Sensor(string Chip, string Label, double Value, double? Min = null, double? Max = null, double? Crit = null);
 
-    /// <summary>The CPU temperature: Intel's package sensor, AMD's Tctl/Tdie, or an ARM SoC's cpu_thermal.</summary>
     internal static Sensor? PickCpuTemp(IReadOnlyList<Sensor> temps) =>
         temps.FirstOrDefault(t => t.Chip == "coretemp" && t.Label.StartsWith("Package", StringComparison.Ordinal))
         ?? temps.FirstOrDefault(t => t.Chip is "k10temp" or "zenpower" && t.Label == "Tdie")
         ?? temps.FirstOrDefault(t => t.Chip is "k10temp" or "zenpower" && t.Label == "Tctl")
         ?? temps.FirstOrDefault(t => t.Chip is "coretemp" or "k10temp" or "zenpower" or "cpu_thermal");
 
-    /// <summary>How far a fan is between its slowest and fastest speed, or -1 when the driver doesn't say.</summary>
     internal static double FanFraction(Sensor fan) =>
         fan.Max is { } max && max > (fan.Min ?? 0) ? Math.Clamp((fan.Value - (fan.Min ?? 0)) / (max - (fan.Min ?? 0)), 0, 1) : -1;
 
@@ -152,7 +139,6 @@ static class Probe
         return t.Days > 0 ? $"{t.Days}d {t.Hours}h" : t.Hours > 0 ? $"{t.Hours}h {t.Minutes}m" : $"{t.Minutes}m";
     }
 
-    /// <summary>A round top for a graph's scale: 1, 2, 5, 10 ... 500 of a power of 1024, at or above `value`.</summary>
     internal static double NiceCeiling(double value)
     {
         if (value <= 1) return 1;
