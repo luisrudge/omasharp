@@ -12,6 +12,7 @@ DIRECTIVE = re.compile(
 )
 
 IDENT = re.compile(r"[A-Za-z_$][\w$]*|\d[\w.]*")
+XML = ("csproj", "targets", "props")
 REGEX_KEYWORDS = {"return", "typeof", "case", "do", "else", "in", "instanceof", "new", "delete", "void", "throw", "yield", "await"}
 
 
@@ -40,6 +41,7 @@ class CLike:
     def code(self, i, close):
         s, n = self.s, len(self.s)
         depth = 0
+        nest = 0
         last = ""
         while i < n:
             c = s[i]
@@ -59,6 +61,13 @@ class CLike:
                     if depth == 0:
                         return i + 1
                     depth -= 1
+                elif c in "([":
+                    nest += 1
+                elif c in ")]":
+                    nest -= 1
+                elif c == ":" and self.lang == "cs" and depth == 0 and nest == 0 and ":" not in (s[i - 1], s[i + 1 : i + 2]):
+                    j = s.find("}", i)
+                    return n if j < 0 else j + 1
             j = self.literal(i, last)
             if j is not None:
                 i, last = j, "1"
@@ -236,8 +245,23 @@ class Shell:
         s, n = self.s, len(self.s)
         depth = 2
         while i < n and depth:
-            depth += {"(": 1, ")": -1}.get(s[i], 0)
-            i += 1
+            c = s[i]
+            if c == "\\":
+                i += 2
+            elif c == "'":
+                j = s.find("'", i + 1)
+                i = n if j < 0 else j + 1
+            elif c == '"':
+                i = self.double(i + 1)
+            elif s.startswith("$((", i):
+                i = self.arithmetic(i + 3)
+            elif s.startswith("$(", i):
+                i = self.code(i + 2, ")")
+            elif c == "`":
+                i = self.code(i + 1, "`")
+            else:
+                depth += {"(": 1, ")": -1}.get(c, 0)
+                i += 1
         return i
 
     def double(self, i):
@@ -297,7 +321,7 @@ def language(path, src):
         return lambda: CLike(src, "cpp").run()
     if ext in ("qml", "js", "mjs"):
         return lambda: CLike(src, "js").run()
-    if ext in ("csproj", "targets", "props"):
+    if ext in XML:
         return lambda: xml_comments(src)
     if ext == "py" or re.match(r"#!.*python", src):
         return lambda: python_comments(src)
@@ -316,7 +340,7 @@ def comments(path, src):
     return [(a, b) for a, b in found if not (a == 0 and src.startswith("#!")) and not DIRECTIVE.match(src[a:b])]
 
 
-def join_kept(body, gone):
+def join_kept(body, gone, separate):
     kept = ""
     gap = False
     for ch, g in zip(body, gone):
@@ -326,14 +350,18 @@ def join_kept(body, gone):
         if gap:
             if kept[-1].isspace() and ch.isspace():
                 continue
-            if not kept[-1].isspace() and not ch.isspace() and kept[-1] not in "([{" and ch not in ")]},;":
+            if separate and not kept[-1].isspace() and not ch.isspace() and kept[-1] not in "([{" and ch not in ")]},;":
                 kept += " "
             gap = False
         kept += ch
     return kept
 
 
-def strip(src, spans):
+def fix(path, src):
+    return strip(src, comments(path, src), separate=path.rsplit(".", 1)[-1] not in XML)
+
+
+def strip(src, spans, separate):
     gone = bytearray(len(src))
     for a, b in spans:
         gone[a:b] = b"\1" * (b - a)
@@ -344,9 +372,12 @@ def strip(src, spans):
         end = pos + len(line)
         if any(gone[pos:end]):
             body = line.rstrip("\r\n")
-            kept = join_kept(body, gone[pos : pos + len(body)]).rstrip()
+            kept = join_kept(body, gone[pos : pos + len(body)], separate).rstrip()
             if not kept.strip():
-                dropped = True
+                if out and out[-1].rstrip("\r\n").endswith("\\"):
+                    out.append(line[len(body):])
+                else:
+                    dropped = True
                 pos = end
                 continue
             line = kept + line[len(body):]
@@ -363,7 +394,7 @@ def strip(src, spans):
 
 
 def main(args):
-    fix = "--fix" in args
+    fixing = "--fix" in args
     paths = [a for a in args if a != "--fix"]
     bad = []
     for path in paths:
@@ -375,9 +406,9 @@ def main(args):
         spans = comments(path, src)
         if not spans:
             continue
-        if fix:
+        if fixing:
             with open(path, "w", encoding="utf-8", newline="") as f:
-                f.write(strip(src, spans))
+                f.write(fix(path, src))
             continue
         bad.append(path)
         for a, b in spans:

@@ -10,13 +10,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import comments
 
 
-def fixed(name, src):
-    return comments.strip(src, comments.comments(name, src))
 
 
 class Strip(unittest.TestCase):
     def check(self, name, src, want):
-        self.assertEqual(fixed(name, src), want)
+        self.assertEqual(comments.fix(name, src), want)
         self.assertEqual(comments.comments(name, want), [])
 
     def test_csharp(self):
@@ -134,6 +132,31 @@ class Strip(unittest.TestCase):
             "# kept\n"
             "EOF\n"
             "echo $((1<<2)) \"$((3<<1))\"\n"
+        ))
+
+    def test_csharp_format_specifiers(self):
+        self.check("A.cs", (
+            "var a = $\"{12:0 /* kept */}\" + $\"\"\"{42:0//0}\"\"\"; // gone\n"
+            "var b = $\"{(x ? 1 : 2) /* gone */,5:N0}{global::System.Math.PI}\";\n"
+        ), (
+            "var a = $\"{12:0 /* kept */}\" + $\"\"\"{42:0//0}\"\"\";\n"
+            "var b = $\"{(x ? 1 : 2) ,5:N0}{global::System.Math.PI}\";\n"
+        ))
+
+    def test_xml_text_stays_joined(self):
+        self.check("App.csproj", "<Name>foo<!-- why -->bar</Name>\n", "<Name>foobar</Name>\n")
+
+    def test_continued_lines_stay_apart(self):
+        self.check("a.sh", "printf '%s\\n' foo \\\n# gone\ntrue\n", "printf '%s\\n' foo \\\n\ntrue\n")
+
+    def test_shell_arithmetic_with_commands(self):
+        self.check("a.sh", (
+            "echo $(( $(printf %s 1 \"(\" | cut -c1) + 1 )) # gone\n"
+            "# gone\n"
+            "echo '# kept'\n"
+        ), (
+            "echo $(( $(printf %s 1 \"(\" | cut -c1) + 1 ))\n"
+            "echo '# kept'\n"
         ))
 
     def test_shell_by_shebang(self):
