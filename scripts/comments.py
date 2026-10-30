@@ -205,13 +205,18 @@ class Shell:
     def code(self, i, close):
         s, n = self.s, len(self.s)
         depth = 0
+        escaped = -1
         while i < n:
             c = s[i]
             if c == "\\":
-                i += 2
+                if s.startswith("\n", i + 1) and (i == 0 or s[i - 1] in " \t\n;&|()"):
+                    i += 2
+                else:
+                    i += 2
+                    escaped = i
             elif c == "\n":
                 i = self.bodies(i + 1)
-            elif c == "#" and (i == 0 or s[i - 1] in " \t\n;&|()"):
+            elif c == "#" and i != escaped and (i == 0 or s[i - 1] in " \t\n;&|()"):
                 j = s.find("\n", i)
                 j = n if j < 0 else j
                 self.found.append((i, j))
@@ -264,13 +269,13 @@ class Shell:
                 i += 1
         return n
 
-    def parameter(self, i):
+    def parameter(self, i, quoted=False):
         s, n = self.s, len(self.s)
         while i < n:
             c = s[i]
             if c == "\\":
                 i += 2
-            elif c == "'":
+            elif c == "'" and not quoted:
                 j = s.find("'", i + 1)
                 i = n if j < 0 else j + 1
             elif c == '"':
@@ -280,7 +285,7 @@ class Shell:
             elif c == "`":
                 i = self.code(i + 1, "`")
             elif s.startswith("${", i):
-                i = self.parameter(i + 2)
+                i = self.parameter(i + 2, quoted)
             elif c == "}":
                 return i + 1
             else:
@@ -319,7 +324,7 @@ class Shell:
             elif c == '"':
                 return i + 1
             elif s.startswith("${", i):
-                i = self.parameter(i + 2)
+                i = self.parameter(i + 2, quoted=True)
             elif s.startswith("$((", i):
                 i = self.arithmetic(i + 3)
             elif s.startswith("$(", i):

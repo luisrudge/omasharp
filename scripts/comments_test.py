@@ -190,6 +190,12 @@ class Strip(unittest.TestCase):
     def test_keyword_named_method_is_not_a_condition(self):
         self.check("Main.qml", "const n = obj.with(value) / scale; // gone\n", "const n = obj.with(value) / scale;\n")
 
+    def test_shell_apostrophe_in_quoted_expansion(self):
+        self.check("a.sh", "echo \"${x:-don't}\" # gone\n# gone\necho '# kept'\n", "echo \"${x:-don't}\"\necho '# kept'\n")
+
+    def test_shell_escaped_space_before_hash(self):
+        self.check("a.sh", "printf '%s\\n' foo\\ #bar # gone\necho foo\\\n#bar\n", "printf '%s\\n' foo\\ #bar\necho foo\\\n#bar\n")
+
     def test_shell_by_shebang(self):
         self.check("pre-commit", "#!/bin/sh\n# gone\nexec true\n", "#!/bin/sh\nexec true\n")
 
