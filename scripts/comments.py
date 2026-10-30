@@ -395,96 +395,20 @@ def comments(path, src):
     return [(a, b) for a, b in found if not (a == 0 and src.startswith("#!")) and not DIRECTIVE.match(src[a:b])]
 
 
-def join_kept(body, gone, separate):
-    kept = ""
-    gap = False
-    for ch, g in zip(body, gone):
-        if g:
-            gap = bool(kept)
-            continue
-        if gap:
-            if kept[-1].isspace() and ch.isspace():
-                continue
-            if separate and not kept[-1].isspace() and not ch.isspace() and kept[-1] not in "([{" and ch not in ")]},;":
-                kept += " "
-            gap = False
-        kept += ch
-    return kept
-
-
-def fix(path, src):
-    spans = comments(path, src)
-    ext = path.rsplit(".", 1)[-1]
-    if ext in ("cpp", "cc", "c", "h", "hpp") + XML:
-        gap = "" if ext in XML else " "
-        for a, b in reversed(spans):
-            start = src.rfind("\n", 0, a) + 1
-            end = src.find("\n", b)
-            end = len(src) if end < 0 else end
-            if "\n" in src[a:b] and src[start:a].strip() and src[b:end].strip():
-                src = (src[:a].rstrip(" \t") + " " + src[b:].lstrip(" \t")) if gap else src[:a] + src[b:]
-        spans = comments(path, src)
-    return strip(src, spans, separate=path.rsplit(".", 1)[-1] not in XML)
-
-
-def strip(src, spans, separate):
-    gone = bytearray(len(src))
-    for a, b in spans:
-        gone[a:b] = b"\1" * (b - a)
-    out = []
-    dropped = False
-    pos = 0
-    for line in src.splitlines(keepends=True):
-        end = pos + len(line)
-        if any(gone[pos:end]):
-            body = line.rstrip("\r\n")
-            joined = join_kept(body, gone[pos : pos + len(body)], separate)
-            kept = joined.rstrip()
-            if kept.endswith("\\") and len(joined) > len(kept):
-                kept += joined[len(kept)]
-            if not kept.strip():
-                if out and out[-1].rstrip("\r\n").endswith("\\"):
-                    out.append(line[len(body):])
-                else:
-                    dropped = True
-                pos = end
-                continue
-            line = kept + line[len(body):]
-        blank = not line.strip()
-        if blank and dropped and (not out or not out[-1].strip()):
-            pos = end
-            continue
-        out.append(line)
-        dropped = False
-        pos = end
-    while dropped and out and not out[-1].strip():
-        out.pop()
-    return "".join(out)
-
-
-def main(args):
-    fixing = "--fix" in args
-    paths = [a for a in args if a != "--fix"]
-    bad = []
+def main(paths):
+    bad = False
     for path in paths:
         with open(path, "rb") as f:
             try:
                 src = f.read().decode("utf-8")
             except UnicodeDecodeError:
                 continue
-        spans = comments(path, src)
-        if not spans:
-            continue
-        if fixing:
-            with open(path, "w", encoding="utf-8", newline="") as f:
-                f.write(fix(path, src))
-            continue
-        bad.append(path)
-        for a, b in spans:
+        for a, b in comments(path, src):
+            bad = True
             line = src.count("\n", 0, a) + 1
             print(f"{path}:{line}: {src[a:b].splitlines()[0]}")
     if bad:
-        print("comments: this repo's code has no comments (AGENTS.md). Fix: python3 scripts/comments.py --fix " + " ".join(bad), file=sys.stderr)
+        print("comments: this repo's code has no comments (AGENTS.md). Remove the ones listed above.", file=sys.stderr)
         return 1
     return 0
 

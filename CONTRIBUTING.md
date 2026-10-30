@@ -41,7 +41,7 @@ An app made from a local package restores `Omasharp.Analyzers` from nuget.org at
 
 It also checks that each OMASHARP rule fails a generated app's build, and builds and tests the examples (they use the analyzers from source). It never touches your screen, your installed templates or your files.
 
-Turn on the pre-commit hook once per clone: `git config core.hooksPath .githooks`. It runs `scripts/lint.sh` on the files you stage: C# formatting (`dotnet format whitespace`), C++ formatting (`clang-format`, style in `.clang-format`), `shellcheck` if you have it, and `scripts/comments.py`, which fails on code comments (see Rules). CI runs it on every file. Fix formatting with `dotnet format whitespace --folder` and `clang-format -i FILE`, and remove comments with `python3 scripts/comments.py --fix FILE...`. QML isn't auto-formatted: follow the style of the files around it.
+Turn on the pre-commit hook once per clone: `git config core.hooksPath .githooks`. It runs `scripts/lint.sh` on the files you stage: C# formatting (`dotnet format whitespace`), C++ formatting (`clang-format`, style in `.clang-format`), `shellcheck` if you have it, and `scripts/comments.py`, which fails on code comments (see Rules). CI runs it on every file. Fix formatting with `dotnet format whitespace --folder` and `clang-format -i FILE`, and remove the comments it lists by hand. QML isn't auto-formatted: follow the style of the files around it.
 
 ## Rules
 
