@@ -199,6 +199,12 @@ class Strip(unittest.TestCase):
     def test_shell_escaped_trailing_space(self):
         self.check("a.sh", "printf '%s\\n' foo\\  # gone\ntrue\n", "printf '%s\\n' foo\\ \ntrue\n")
 
+    def test_shell_hash_after_substitution(self):
+        self.check("a.sh", "printf '%s\\n' $(printf foo)#bar $((1))#x # gone\n", "printf '%s\\n' $(printf foo)#bar $((1))#x\n")
+
+    def test_cpp_directive_keeps_one_line(self):
+        self.check("a.cpp", "#if 0 /* reason\n */ || 1\nint a;\n#endif\nint b; /* x\n y */\n", "#if 0 || 1\nint a;\n#endif\nint b;\n")
+
     def test_shell_by_shebang(self):
         self.check("pre-commit", "#!/bin/sh\n# gone\nexec true\n", "#!/bin/sh\nexec true\n")
 

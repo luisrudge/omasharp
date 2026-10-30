@@ -231,9 +231,9 @@ class Shell:
             elif s.startswith("${", i):
                 i = self.parameter(i + 2)
             elif s.startswith("$((", i):
-                i = self.arithmetic(i + 3)
+                i = escaped = self.arithmetic(i + 3)
             elif s.startswith("$(", i):
-                i = self.code(i + 2, ")")
+                i = escaped = self.code(i + 2, ")")
             elif c == "`":
                 if close == "`":
                     return i + 1
@@ -411,7 +411,16 @@ def join_kept(body, gone, separate):
 
 
 def fix(path, src):
-    return strip(src, comments(path, src), separate=path.rsplit(".", 1)[-1] not in XML)
+    spans = comments(path, src)
+    if language(path, src) and path.rsplit(".", 1)[-1] in ("cpp", "cc", "c", "h", "hpp"):
+        for a, b in reversed(spans):
+            start = src.rfind("\n", 0, a) + 1
+            end = src.find("\n", b)
+            end = len(src) if end < 0 else end
+            if "\n" in src[a:b] and src[start:a].strip() and src[b:end].strip():
+                src = src[:a].rstrip(" \t") + " " + src[b:].lstrip(" \t")
+        spans = comments(path, src)
+    return strip(src, spans, separate=path.rsplit(".", 1)[-1] not in XML)
 
 
 def strip(src, spans, separate):
