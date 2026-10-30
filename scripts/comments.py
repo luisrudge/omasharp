@@ -425,7 +425,10 @@ def strip(src, spans, separate):
         end = pos + len(line)
         if any(gone[pos:end]):
             body = line.rstrip("\r\n")
-            kept = join_kept(body, gone[pos : pos + len(body)], separate).rstrip()
+            joined = join_kept(body, gone[pos : pos + len(body)], separate)
+            kept = joined.rstrip()
+            if kept.endswith("\\") and len(joined) > len(kept):
+                kept += joined[len(kept)]
             if not kept.strip():
                 if out and out[-1].rstrip("\r\n").endswith("\\"):
                     out.append(line[len(body):])

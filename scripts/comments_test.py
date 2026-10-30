@@ -196,6 +196,9 @@ class Strip(unittest.TestCase):
     def test_shell_escaped_space_before_hash(self):
         self.check("a.sh", "printf '%s\\n' foo\\ #bar # gone\necho foo\\\n#bar\n", "printf '%s\\n' foo\\ #bar\necho foo\\\n#bar\n")
 
+    def test_shell_escaped_trailing_space(self):
+        self.check("a.sh", "printf '%s\\n' foo\\  # gone\ntrue\n", "printf '%s\\n' foo\\ \ntrue\n")
+
     def test_shell_by_shebang(self):
         self.check("pre-commit", "#!/bin/sh\n# gone\nexec true\n", "#!/bin/sh\nexec true\n")
 
