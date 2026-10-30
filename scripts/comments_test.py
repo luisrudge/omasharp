@@ -205,6 +205,12 @@ class Strip(unittest.TestCase):
     def test_cpp_directive_keeps_one_line(self):
         self.check("a.cpp", "#if 0 /* reason\n */ || 1\nint a;\n#endif\nint b; /* x\n y */\n", "#if 0 || 1\nint a;\n#endif\nint b;\n")
 
+    def test_shell_here_string(self):
+        self.check("a.sh", "cat <<< \"hello\" # gone\n# gone\necho '# kept'\n", "cat <<< \"hello\"\necho '# kept'\n")
+
+    def test_xml_multiline_comment_inside_value(self):
+        self.check("App.csproj", "<Version>1.<!-- reason\n -->2.3</Version>\n", "<Version>1.2.3</Version>\n")
+
     def test_shell_by_shebang(self):
         self.check("pre-commit", "#!/bin/sh\n# gone\nexec true\n", "#!/bin/sh\nexec true\n")
 

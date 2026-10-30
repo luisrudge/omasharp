@@ -246,7 +246,9 @@ class Shell:
                     return i + 1
                 depth -= 1
                 i += 1
-            elif s.startswith("<<", i) and not s.startswith("<<<", i):
+            elif s.startswith("<<<", i):
+                i += 3
+            elif s.startswith("<<", i):
                 m = self.HEREDOC.match(s, i)
                 if m:
                     word = re.sub(r"""'([^']*)'|"([^"]*)"|\\(.)""", lambda q: "".join(g or "" for g in q.groups()), m.group(2))
@@ -412,13 +414,15 @@ def join_kept(body, gone, separate):
 
 def fix(path, src):
     spans = comments(path, src)
-    if language(path, src) and path.rsplit(".", 1)[-1] in ("cpp", "cc", "c", "h", "hpp"):
+    ext = path.rsplit(".", 1)[-1]
+    if ext in ("cpp", "cc", "c", "h", "hpp") + XML:
+        gap = "" if ext in XML else " "
         for a, b in reversed(spans):
             start = src.rfind("\n", 0, a) + 1
             end = src.find("\n", b)
             end = len(src) if end < 0 else end
             if "\n" in src[a:b] and src[start:a].strip() and src[b:end].strip():
-                src = src[:a].rstrip(" \t") + " " + src[b:].lstrip(" \t")
+                src = (src[:a].rstrip(" \t") + " " + src[b:].lstrip(" \t")) if gap else src[:a] + src[b:]
         spans = comments(path, src)
     return strip(src, spans, separate=path.rsplit(".", 1)[-1] not in XML)
 
