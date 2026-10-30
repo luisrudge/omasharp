@@ -142,7 +142,7 @@ class CLike:
         while i < n:
             c = s[i]
             if escape and c == escape:
-                i += 2
+                i += 3 if s.startswith("\r\n", i + 1) else 2
             elif c == quote:
                 if doubled and s.startswith(quote * 2, i):
                     i += 2
