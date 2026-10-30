@@ -45,7 +45,7 @@ class CLike:
         depth = 0
         nest = 0
         parens = []
-        last = ""
+        last = before = ""
         while i < n:
             c = s[i]
             if s.startswith("//", i):
@@ -72,7 +72,7 @@ class CLike:
                     j = s.find("}", i)
                     return n if j < 0 else j + 1
             if self.lang == "js" and c == "(":
-                parens.append(last in ("if", "while", "for", "with"))
+                parens.append(last in ("if", "while", "for", "with") and before != ".")
             elif self.lang == "js" and c == ")" and parens:
                 i, last = i + 1, ";" if parens.pop() else ")"
                 continue
@@ -82,7 +82,7 @@ class CLike:
                 continue
             m = IDENT.match(s, i)
             if m:
-                i, last = m.end(), m.group()
+                i, before, last = m.end(), last, m.group()
                 continue
             i, last = i + 1, c
         return i
@@ -91,7 +91,7 @@ class CLike:
         s, c = self.s, self.s[i]
         if self.lang == "cs":
             m = re.compile(r'([$@]*)("+)').match(s, i)
-            if m and (c == '"' or m.group(1)) and not (i and (s[i - 1].isalnum() or s[i - 1] == "_")):
+            if m and (c == '"' or (m.group(1) and not (i and (s[i - 1].isalnum() or s[i - 1] == "_")))):
                 prefix, quotes = m.group(1), len(m.group(2))
                 start = i + len(prefix) + 1
                 if "@" in prefix:
@@ -318,6 +318,8 @@ class Shell:
                 i += 2
             elif c == '"':
                 return i + 1
+            elif s.startswith("${", i):
+                i = self.parameter(i + 2)
             elif s.startswith("$((", i):
                 i = self.arithmetic(i + 3)
             elif s.startswith("$(", i):

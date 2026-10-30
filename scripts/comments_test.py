@@ -181,6 +181,15 @@ class Strip(unittest.TestCase):
             "var r = f(a) / 2\n"
         ))
 
+    def test_shell_quoted_default_in_double_quotes(self):
+        self.check("a.sh", "printf '%s\\n' \"${x:-\"a # b\"}\" # gone\n", "printf '%s\\n' \"${x:-\"a # b\"}\"\n")
+
+    def test_csharp_string_after_keyword(self):
+        self.check("A.cs", "string F() { return\"/* data */\"; } // gone\n", "string F() { return\"/* data */\"; }\n")
+
+    def test_keyword_named_method_is_not_a_condition(self):
+        self.check("Main.qml", "const n = obj.with(value) / scale; // gone\n", "const n = obj.with(value) / scale;\n")
+
     def test_shell_by_shebang(self):
         self.check("pre-commit", "#!/bin/sh\n# gone\nexec true\n", "#!/bin/sh\nexec true\n")
 
