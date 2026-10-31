@@ -1,7 +1,3 @@
-// Bar widget dev harness (dotnet run and check.sh on a bar widget app): shows plugin/BarWidget.qml
-// in a stand-in bar, in its own Quickshell process, with omarchy-shell's theme (qs.Commons) and
-// controls (qs.Ui) but none of its risk. The dropdown opens at start; closing it ends the run.
-// OMASHARP_BAR_POSITION=top (default), bottom, left or right puts the bar on that edge.
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -19,7 +15,6 @@ ShellRoot {
     try { return JSON.parse(Quickshell.env("OMASHARP_PANEL_PAYLOAD") || "{}").screen || "" } catch (e) { return "" }
   }
 
-  // The id omarchy-shell knows the plugin by, which the shell hands the widget as bar.pluginId.
   FileView { id: manifest; path: decodeURIComponent(Qt.resolvedUrl("plugin/manifest.json").toString().replace("file://", "")); blockLoading: true }
   readonly property string pluginId: {
     try { return JSON.parse(manifest.text()).id || "" } catch (e) { return "" }
@@ -27,7 +22,6 @@ ShellRoot {
 
   P.Service { id: service }
 
-  // What omarchy-shell's bar hands a third-party widget, with this bar's values.
   PluginBarApi {
     id: api
     pluginId: root.pluginId
@@ -66,7 +60,6 @@ ShellRoot {
     WlrLayershell.namespace: root.pluginId
     WlrLayershell.layer: WlrLayer.Top
 
-    // Where the bar's right section is: the right end, or the bottom of a vertical bar.
     P.BarWidget {
       id: widget
       bar: api

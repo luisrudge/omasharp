@@ -1,9 +1,3 @@
-// The current Omarchy theme for C# code (window apps and panels): every key in
-// ~/.local/state/omarchy/current/theme/colors.toml, camelCased like QML's `theme.*`
-// (dark_background -> "darkBackground"), plus Dark and Name (current/theme.name).
-// Changed fires on the UI thread when the user switches themes. Use it for colors you compute in C# (a Drawing,
-// a palette), not for QML: QML has `theme.*` (windows) and `Commons.Color.*` (panels).
-// bridge/host/theme.cpp reads the same file for window QML: keep defaults and parsing in step.
 namespace Omasharp;
 
 public static class Theme
@@ -18,20 +12,16 @@ public static class Theme
 
     static string StateDir => Path.Combine(Environment.GetEnvironmentVariable("HOME") ?? "", ".local/state/omarchy/current");
 
-    /// <summary>Every theme key (camelCased) to its value, e.g. "accent" -> "#7aa2f7".</summary>
     public static IReadOnlyDictionary<string, string> Colors { get { Start(); return s_colors; } }
 
     public static bool Dark => Get("mode") != "light";
 
-    /// <summary>The theme's name as Omarchy stores it, e.g. "tokyo-night"; "" without an Omarchy theme.</summary>
     public static string Name { get { Start(); return s_name; } }
 
     public static string Get(string key, string fallback = "") => Colors.TryGetValue(key, out var v) ? v : fallback;
 
-    /// <summary>A theme color for a Drawing, e.g. Theme.Color("accent").</summary>
     public static Color Color(string key, string fallback = "#ff00ff") => Omasharp.Color.Parse(Get(key, fallback));
 
-    /// <summary>Fires on the UI thread after the user switches themes.</summary>
     public static event Action Changed
     {
         add { Start(); lock (s_lock) s_changed += value; }
@@ -47,7 +37,6 @@ public static class Theme
             s_colors = Load();
             s_name = LoadName();
             if (!Directory.Exists(StateDir)) return;
-            // Omarchy swaps current/theme for a new directory: watch below current/.
             s_watcher = new FileSystemWatcher(StateDir) { IncludeSubdirectories = true, EnableRaisingEvents = true };
             FileSystemEventHandler on = (_, _) => s_debounce?.Change(80, Timeout.Infinite);
             s_watcher.Changed += on;

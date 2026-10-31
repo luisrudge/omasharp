@@ -1,7 +1,3 @@
-// Dev mode, which the release build never uses: runManaged starts the normal .NET
-// runtime through hostfxr and runs the app's managed Main (bridge/cs/Dev.cs), which
-// calls back into omasharp_host_run. Running Main is the plain `dotnet App.dll` path,
-// so the app starts the way any .NET program does.
 #include <QDir>
 #include <QFile>
 #include <QVersionNumber>

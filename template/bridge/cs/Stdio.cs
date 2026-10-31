@@ -1,15 +1,4 @@
 #if OMASHARP_STDIO
-// Panel transport: the shell plugin runs this program as a child process and
-// talks JSON lines over stdin/stdout. A crash here ends this process only.
-//
-//   shell -> backend  {"op":"get","id":1,"name":"count"}
-//                     {"op":"set","name":"count","value":3}
-//                     {"op":"call","id":2,"name":"increment","args":[]}
-//   backend -> shell  {"op":"hello","props":{...},"writable":[...],"methods":[...]}
-//                     {"op":"notify","name":"count","value":3}
-//                     {"op":"raised","name":"copied","value":"..."}
-//                     {"op":"result","id":2,"value":null}
-//                     {"op":"error","id":2,"message":"..."}
 using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
@@ -26,12 +15,11 @@ static class StdioHost
         {
             var instance = new AppBackend();
             try { File.WriteAllText(path, Shim.Generate(new Model(typeof(AppBackend), instance))); }
-            catch (BridgeException e) { Console.Error.WriteLine($"Backend.cs : error OMASHARP001 : {e.Message}"); return 1; } // an MSBuild error line
+            catch (BridgeException e) { Console.Error.WriteLine($"Backend.cs : error OMASHARP001 : {e.Message}"); return 1; }
             finally { (instance as IDisposable)?.Dispose(); }
             return 0;
         }
 
-        // stdout belongs to the protocol; anything the app prints goes to stderr.
         s_out = new StreamWriter(Console.OpenStandardOutput(), new UTF8Encoding(false)) { AutoFlush = true, NewLine = "\n" };
         Console.SetOut(Console.Error);
 
@@ -55,11 +43,10 @@ static class StdioHost
                 var l = line;
                 queue.Add(() => Handle(model, l));
             }
-            queue.CompleteAdding(); // the shell went away: exit
+            queue.CompleteAdding();
         }) { IsBackground = true, Name = "stdin" }.Start();
 
         foreach (var action in queue.GetConsumingEnumerable()) Ui.Run(action);
-        // The shell closed stdin: let Backend clean up (timers, watchers, files), then exit.
         try { (backend as IDisposable)?.Dispose(); }
         catch (Exception e) { Log.Error("Dispose", e); }
         Environment.Exit(0);
@@ -89,14 +76,12 @@ static class StdioHost
                     Reply(id, model.Get(name!));
                     break;
                 case "set":
-                    // Echo what C# kept: a setter may clamp or refuse without raising a change.
                     Notify(name!, model.Set(name!, msg.GetProperty("value").GetRawText()));
                     break;
                 case "call":
                     var args = msg.TryGetProperty("args", out var a) ? a.GetRawText() : "[]";
                     var value = model.Call(name!, args, out var pending);
                     if (pending == null) { Reply(id, value ?? "null"); break; }
-                    // Async method: answer when it finishes (QML's Promise waits for it).
                     var callId = id; var callName = name;
                     pending.ContinueWith(t => Ui.Post(() =>
                     {
@@ -119,7 +104,6 @@ static class StdioHost
             Console.Error.WriteLine($"omasharp: {name}: {err}");
             var idJson = id.ValueKind == JsonValueKind.Undefined ? "null" : id.GetRawText();
             Send($"{{\"op\":\"error\",\"id\":{idJson},\"name\":{Json.Encode(name)},\"message\":{Json.Encode(e.Message)}}}");
-            // A rejected set leaves QML holding a value C# never took: send the real one back.
             if (name != null && model.PropertyNames.Contains(name)) Notify(name, model.Get(name));
         }
     }

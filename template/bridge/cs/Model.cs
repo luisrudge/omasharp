@@ -1,6 +1,3 @@
-// Omasharp bridge: exposes the app's Backend class to QML.
-// Values cross the boundary as JSON in both transports (in-process C ABI and
-// stdio JSON lines), so Backend.cs is the same for window apps and panels.
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
@@ -16,10 +13,10 @@ sealed class Model
 
     readonly object _target;
     readonly Dictionary<string, PropertyInfo> _props = new();
-    readonly Dictionary<string, string> _qmlNames = new(); // C# name -> QML name
+    readonly Dictionary<string, string> _qmlNames = new();
     readonly Dictionary<string, MethodInfo[]> _methods = new();
 
-    public event Action<string, string>? Changed; // QML name, JSON value; always on the UI thread
+    public event Action<string, string>? Changed;
 
     public Model([DynamicallyAccessedMembers(Members)] Type type, object target)
     {
@@ -35,7 +32,6 @@ sealed class Model
         foreach (var m in type.GetMethods(BindingFlags.Public | BindingFlags.Instance))
         {
             if (m.IsSpecialName || m.IsGenericMethodDefinition || m.DeclaringType == typeof(object)) continue;
-            // Dispose() is the bridge's to call (at exit), not QML's.
             if (m.Name == nameof(IDisposable.Dispose) && m.GetParameters().Length == 0 && target is IDisposable) continue;
             var name = QmlName(m.Name);
             CheckName(type, m.Name, name);
@@ -70,7 +66,6 @@ sealed class Model
         if (_qmlNames.TryGetValue(csName, out var qml)) Changed?.Invoke(qml, Get(qml));
     }
 
-    // {"props":{"count":1,...},"writable":["count"],"methods":["increment"]}
     public string Describe()
     {
         using var ms = new MemoryStream();
@@ -100,7 +95,6 @@ sealed class Model
     public string Get(string name) =>
         _props.TryGetValue(name, out var p) ? Json.Encode(SafeGet(p)) : throw new BridgeException($"no property '{name}'");
 
-    /// <summary>Sets a property and returns the value C# ended up with (a setter may clamp or refuse).</summary>
     public string Set(string name, string json)
     {
         if (!_props.TryGetValue(name, out var p)) throw new BridgeException($"no property '{name}'");
@@ -110,9 +104,6 @@ sealed class Model
         return Get(name);
     }
 
-    // argsJson is a JSON array. Returns the JSON-encoded result ("null" for void). For async
-    // methods (Task, Task<T>) it returns null and hands back the running task: the transport
-    // resolves QML's Promise when it finishes (ResultJson gives its value).
     public string Call(string name, string argsJson) => Call(name, argsJson, out _) ?? "null";
 
     public string? Call(string name, string argsJson, out Task? pending)
@@ -138,7 +129,6 @@ sealed class Model
         return Json.Encode(result);
     }
 
-    /// <summary>A finished task's value as JSON ("null" for Task), or throws its exception.</summary>
     public static string ResultJson(Task task)
     {
         if (task.IsFaulted) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(task.Exception!.InnerException ?? task.Exception).Throw();
@@ -146,8 +136,6 @@ sealed class Model
         return Json.Encode(TaskResult(task));
     }
 
-    // Task<T>.Result without knowing T. The runtime type of an async method's task is a subclass
-    // (and a plain Task is a Task<VoidTaskResult> inside), so look for Task<T> up the chain.
     [UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "Task<>.Result is kept by the DynamicDependency.")]
     [DynamicDependency(DynamicallyAccessedMemberTypes.PublicProperties, typeof(Task<>))]
     static object? TaskResult(Task task)
@@ -192,7 +180,7 @@ static class Json
 
     static void Write(Utf8JsonWriter w, object? value, int depth)
     {
-        if (depth > 32) { w.WriteNullValue(); return; } // a cycle, most likely
+        if (depth > 32) { w.WriteNullValue(); return; }
         switch (value)
         {
             case null: w.WriteNullValue(); break;
@@ -233,9 +221,6 @@ static class Json
             .Where(p => p.GetMethod is { IsPublic: true } && p.GetIndexParameters().Length == 0)
             .Select(p => (char.ToLowerInvariant(p.Name[0]) + p.Name[1..], p))];
 
-    // The app's own classes and records become JS objects: { publicProperty: value, ... }.
-    // Safe under native AOT because Omasharp.targets roots the app's assembly (its types keep
-    // their property metadata). Framework types we don't know fall back to ToString().
     [UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "The app assembly is rooted (TrimmerRootAssembly).")]
     static void WriteObject(Utf8JsonWriter w, object value, int depth)
     {

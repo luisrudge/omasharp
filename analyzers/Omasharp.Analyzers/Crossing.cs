@@ -2,13 +2,10 @@ using Microsoft.CodeAnalysis;
 
 namespace Omasharp.Analyzers;
 
-/// <summary>Which types the bridge can move between QML and C# (template/bridge/cs/Model.cs: Json.Convert
-/// for QML -> C#, Json.Write for C# -> QML).</summary>
 static class Crossing
 {
     public const string Supported = "string, bool, a number type, an enum, string[], double[], int[] or object (a parsed JSON value)";
 
-    /// <summary>QML -> C#: a method argument, or a value QML assigns to a property.</summary>
     public static bool CanComeFromQml(ITypeSymbol t)
     {
         if (t is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } n) t = n.TypeArguments[0];
@@ -34,8 +31,6 @@ static class Crossing
         return t is IArrayTypeSymbol { Rank: 1, ElementType.SpecialType: SpecialType.System_String or SpecialType.System_Double or SpecialType.System_Int32 };
     }
 
-    /// <summary>C# -> QML: what's wrong with a property's or a method's type, or null. Almost anything
-    /// goes (the app's own classes and records become JS objects); these don't.</summary>
     public static string? CantGoToQml(ITypeSymbol t)
     {
         if (t is INamedTypeSymbol { IsGenericType: true } task && task.ConstructedFrom.ToDisplayString() == "System.Threading.Tasks.Task<TResult>")

@@ -7,10 +7,6 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Omasharp.Analyzers;
 
-/// <summary>The backend's fields and properties that its own code changes after startup: assigned,
-/// incremented, passed by ref, or (collections) added to or cleared, anywhere but in a constructor
-/// or an initializer. Lambdas count as after startup even when a constructor creates them (a timer
-/// callback, a file watcher's handler). Only writes it's sure about: when in doubt, it says no.</summary>
 sealed class Writes
 {
     static readonly HashSet<string> s_mutators = new()
@@ -43,7 +39,6 @@ sealed class Writes
                     _ => null,
                 };
                 if (target == null || AtStartup(n)) continue;
-                // _items[i] = x changes _items.
                 while (target is ElementAccessExpressionSyntax e) target = e.Expression;
                 var s = model.GetSymbolInfo(target, ct).Symbol;
                 if (s is IFieldSymbol or IPropertySymbol && SymbolEqualityComparer.Default.Equals(s.ContainingType?.OriginalDefinition, type.OriginalDefinition))
@@ -53,7 +48,6 @@ sealed class Writes
         return w;
     }
 
-    // In a constructor or a field/property initializer, and not inside a lambda or local function there.
     static bool AtStartup(SyntaxNode n)
     {
         foreach (var a in n.Ancestors())

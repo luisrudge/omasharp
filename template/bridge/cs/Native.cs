@@ -1,8 +1,4 @@
 #if OMASHARP_NATIVE
-// Window transport: the C++ host loads this assembly in-process, either as a
-// native AOT libapp.so (release) or through hostfxr on the normal .NET runtime
-// (dev mode), and calls through the table returned by omasharp_api().
-// Must match bridge/host/omasharp.h.
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -12,24 +8,24 @@ namespace Omasharp;
 [StructLayout(LayoutKind.Sequential)]
 unsafe struct HostApi
 {
-    public delegate* unmanaged<byte*, byte*, void> Notify; // name, JSON value; UI thread only
-    public delegate* unmanaged<long, void> Post;           // any thread; host calls RunPosted(token) on the UI thread
-    public delegate* unmanaged<byte*, byte*, void> Raised; // name, JSON value; UI thread only
-    public byte* Args;                                     // JSON array of the app's arguments
-    public delegate* unmanaged<byte*, byte*, int, void> Draw; // Bridge.Show: name, Drawing buffer, length; UI thread
-    public double MonoAdvance;                             // monospace character width per pixel of font size
-    public delegate* unmanaged<long, byte*, int, void> Resolve; // async call id, JSON value or error message, isError
+    public delegate* unmanaged<byte*, byte*, void> Notify;
+    public delegate* unmanaged<long, void> Post;
+    public delegate* unmanaged<byte*, byte*, void> Raised;
+    public byte* Args;
+    public delegate* unmanaged<byte*, byte*, int, void> Draw;
+    public double MonoAdvance;
+    public delegate* unmanaged<long, byte*, int, void> Resolve;
 }
 
 [StructLayout(LayoutKind.Sequential)]
 unsafe struct Api
 {
     public int Version;
-    public delegate* unmanaged<byte*> AppInfo;                      // {"id":..,"name":..}
-    public delegate* unmanaged<HostApi*, byte*> Start;              // creates Backend, returns Describe() JSON
-    public delegate* unmanaged<byte*, int*, byte*> Get;             // name, out isError -> JSON value | message
-    public delegate* unmanaged<byte*, byte*, int*, byte*> Set;      // name, JSON value, out isError -> null | message
-    public delegate* unmanaged<byte*, byte*, int*, byte*> Call;     // name, JSON args array, out isError -> JSON | message
+    public delegate* unmanaged<byte*> AppInfo;
+    public delegate* unmanaged<HostApi*, byte*> Start;
+    public delegate* unmanaged<byte*, int*, byte*> Get;
+    public delegate* unmanaged<byte*, byte*, int*, byte*> Set;
+    public delegate* unmanaged<byte*, byte*, int*, byte*> Call;
     public delegate* unmanaged<byte*, void> Free;
     public delegate* unmanaged<long, void> RunPosted;
     public delegate* unmanaged<void> Shutdown;
@@ -37,7 +33,7 @@ unsafe struct Api
 
 static unsafe class NativeExports
 {
-    const int Abi = 4; // OMASHARP_ABI in omasharp.h
+    const int Abi = 4;
     static Api* s_api;
     static HostApi s_host;
     static Model? s_model;
@@ -122,8 +118,6 @@ static unsafe class NativeExports
     static byte* Set(byte* name, byte* json, int* isError) =>
         Guard(isError, () => { s_model!.Set(Str(name), Str(json)); return null; });
 
-    // isError: 0 = value, 1 = error message, 2 = still running: the value is an id that
-    // host->Resolve gets once the task finishes (QML sees a Promise).
     [UnmanagedCallersOnly]
     static byte* Call(byte* name, byte* args, int* isError)
     {

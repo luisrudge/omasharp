@@ -1,17 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- window: Main.qml in a native window. panel: plugin/Panel.qml inside omarchy-shell.
-         bar-widget: plugin/BarWidget.qml, an icon in the Omarchy bar with a dropdown. -->
     <OmarchyKind>omarchy-kind</OmarchyKind>
-    <!-- The Wayland app_id (window rules match on it) or the shell plugin id. -->
     <AppId>omarchy-app-id</AppId>
     <AppName>OmarchyApp</AppName>
-    <!-- Window apps: a v<Version> git tag publishes a release (.github/workflows/release.yml). -->
     <Version>0.1.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="tests/**" />
   </ItemGroup>
-  <!-- The bridge: copied into this app, yours to read and change. See bridge/README.md. -->
   <Import Project="bridge/Omasharp.targets" />
 </Project>

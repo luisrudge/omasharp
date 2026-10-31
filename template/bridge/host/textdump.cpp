@@ -1,7 +1,3 @@
-// check.sh support (the Omasharp skill): with OMASHARP_TEXT_DUMP=<file>, write every visible text in the window
-// (Label/Text/TextField/Button/ComboBox ...) to <file> a few times a second, so a check
-// can read what the user would see, not just a screenshot.
-// Keep the output in step with the shell harnesses' version in bridge/shell/TextDump.qml.
 #include <QFile>
 #include <QQmlApplicationEngine>
 #include <QQuickItem>
@@ -17,7 +13,6 @@ static QString kind(const QObject *o) {
 
 static void walk(QQuickItem *item, int depth, QStringList &out) {
     if (!item || !item->isVisible() || item->opacity() <= 0.01) return;
-    // Password fields: only the masked text, never the secret.
     const QVariant echo = item->property("echoMode");
     const bool masked = echo.isValid() && echo.toInt() != 0;
     QString text = masked ? QString() : item->property("text").toString();

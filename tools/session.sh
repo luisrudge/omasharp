@@ -1,7 +1,4 @@
 # shellcheck shell=sh
-# session.sh (sourced): find the user's Hyprland session even when the environment points at a
-# stale or nested instance. Sets MAIN_SIG, MAIN_WL and the main() wrapper for hyprctl.
-# (the skill's scripts/shot.sh, in template/.agents/skills/omasharp/, has its own copy, since it ships inside apps; keep them in step.)
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 MAIN_SIG=; MAIN_WL=
 for s in $(hyprctl instances -j 2>/dev/null | jq -r 'sort_by(.time) | .[].instance'); do

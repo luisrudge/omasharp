@@ -18,10 +18,6 @@ ApplicationWindow {
     readonly property bool darkMode: backend.darkMode
     readonly property color pageColor: backend.themeBackground
     readonly property color inkColor: backend.themeForeground
-    // Every hardcoded size in the interface is expressed at the 400 × 568
-    // design size; resizing the window scales the whole face with it. The
-    // launch size below already includes the desktop text scale. A scale
-    // change while the window is open waits until the next launch.
     readonly property real uiScale: Math.min(width / 400, height / 568)
 
     function mixColors(base, tint, amount) {
@@ -64,9 +60,6 @@ ApplicationWindow {
         anchors.margins: win.scaledSize(20)
         focus: true
 
-        // The numpad without NumLock sends navigation keys. A calculator has no
-        // use for those, and a compositor can hand a freshly focused window a
-        // keymap that drops NumLock, so read the numpad as digits either way.
         readonly property var numpadKeys: ({
             [Qt.Key_Insert]: "0", [Qt.Key_End]: "1", [Qt.Key_Down]: "2",
             [Qt.Key_PageDown]: "3", [Qt.Key_Left]: "4", [Qt.Key_Clear]: "5",
@@ -200,9 +193,6 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
-        // Chosen once. Hyprland reports a normal float as maximized, so a
-        // saved rectangle was the tiled size and the next launch filled the
-        // screen. Position stays with the compositor.
         width = backend.defaultWidth;
         height = backend.defaultHeight;
         visible = true;

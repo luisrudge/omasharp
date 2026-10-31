@@ -2,6 +2,19 @@
 
 One section per `bridge/VERSION`. Apps update with `dotnet build -t:UpdateBridge`; entries marked **ABI** change the C ABI (`bridge/host/omasharp.h` ⟷ `bridge/cs/Native.cs`), so an app that customized either file must merge both before it runs again.
 
+## 0.1.10
+
+The code has no comments now: the bridge (C#, C++, QML, shell, MSBuild), the skill's scripts, the starter files, the examples, the analyzers and the repo's own scripts and workflows. Nothing changes in how apps build or run:
+
+- Directives and metadata stay: shebangs, `# shellcheck` directives, `#pragma` and `#if`, the template's `//#if` conditionals.
+- Text that's data stays: strings, here-documents, regex literals, test fixtures.
+- `check.sh --help` prints the same text as before, now from a here-document instead of the script's header comment.
+- The explanations apps need are in the bridge's `README.md`, `docs/architecture.md` and the skill's `references/`.
+
+`.clang-format` sets `FixNamespaceComments: false`, so `clang-format` no longer adds `// namespace` comments. In this repo, `scripts/lint.sh` now fails on new comments in C#, QML/JS, C++, shell, Python and MSBuild files (`scripts/comments.py`).
+
+`UpdateBridge` replaces every bridge and skill file the app never changed. For a file the app did change, the `.upstream` copy differs from it only by removed comments (and `check.sh`'s help moving into a here-document), so keeping the app's own version is safe. The host's source changed, so the cached host is built once more.
+
 ## 0.1.9
 
 Omarchy 4.5 (checked against v4.5.0-rc1, its shell and its Quickshell 0.3.2 and Qt 6.12; window apps, panels and bar widgets run unchanged):

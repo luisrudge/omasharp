@@ -4,9 +4,6 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Omasharp.Analyzers;
 
-/// <summary>Which classes are "the backend": the ones QML sees as `backend`. Those derive from
-/// Omasharp.BackendBase, or are named by the app's BackendType (a class that implements
-/// INotifyPropertyChanged itself).</summary>
 sealed class Backends
 {
     readonly INamedTypeSymbol? _base;
@@ -41,8 +38,6 @@ sealed class Backends
         return false;
     }
 
-    /// <summary>The member is on the backend and QML sees it: public, instance, a property with a
-    /// public getter (not an indexer) or an ordinary non-generic method.</summary>
     public static bool IsVisibleToQml(ISymbol member) => member switch
     {
         IPropertySymbol p => p.DeclaredAccessibility == Accessibility.Public && !p.IsStatic && !p.IsIndexer
@@ -52,7 +47,6 @@ sealed class Backends
         _ => false,
     };
 
-    /// <summary>Dispose() of an IDisposable backend: the bridge calls it at exit and hides it from QML.</summary>
     public static bool IsDispose(IMethodSymbol m) =>
         m.Name == "Dispose" && m.Parameters.Length == 0 && m.ReturnsVoid
         && m.ContainingType.AllInterfaces.Any(i => i.ToDisplayString() == "System.IDisposable");

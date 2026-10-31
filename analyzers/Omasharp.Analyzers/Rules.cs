@@ -2,9 +2,6 @@ using Microsoft.CodeAnalysis;
 
 namespace Omasharp.Analyzers;
 
-/// <summary>Omasharp's rules. Each message says what's wrong and the fix; analyzers/README.md has the
-/// details. Every rule fails the build in Omasharp apps (warnings are errors there), so each one only
-/// fires when it's sure.</summary>
 static class Rules
 {
     const string Category = "Omasharp";

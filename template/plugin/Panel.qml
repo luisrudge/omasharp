@@ -2,23 +2,17 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import qs.Commons
-import qs.Commons as Commons // Qt 6.12 has its own Color type: the shell palette is Commons.Color
+import qs.Commons as Commons
 import qs.Ui
 
-// The panel. `backend` is Backend.cs (running as a child process; a crash there can't
-// take the shell down). Colors and sizes come from the shell's theme: Commons.Color.popups.background/.text/.border,
-// Commons.Color.accent, Style.font.body/.display, ... and the shell's own controls from qs.Ui (see .agents/skills/omasharp/references/look.md).
-// Like Omarchy's own panels: an overlay with the keyboard, Escape or a click outside closes it.
 Item {
   id: root
 
-  // Set by omarchy-shell.
   property var shell: null
   property var manifest: null
   property bool opened: false
   property string screenName: ""
 
-  // omarchy-shell shell toggle <id> '{"screen":"DP-1"}' -> open(payload)
   function open(payloadJson) {
     try { screenName = JSON.parse(payloadJson || "{}").screen || "" } catch (e) { screenName = "" }
     opened = true
@@ -42,7 +36,6 @@ Item {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: root.opened ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    // A click outside the card closes the panel.
     Rectangle {
       anchors.fill: parent
       color: Commons.Color.menu.scrim
@@ -52,7 +45,6 @@ Item {
     Item {
       anchors.fill: parent
       focus: true
-      // Keys for the starter's actions: Return counts, Ctrl+R resets, Escape closes.
       Keys.onEscapePressed: root.dismiss()
       Keys.onReturnPressed: backend.running ? backend.increment() : backend.restart()
       Keys.onPressed: function(event) {
@@ -67,7 +59,7 @@ Item {
         border.color: Commons.Color.popups.border
         border.width: 2
         radius: Style.cornerRadius
-        MouseArea { anchors.fill: parent; onClicked: {} } // clicks on the card don't close it
+        MouseArea { anchors.fill: parent; onClicked: {} }
 
         Column {
           id: content
@@ -76,7 +68,7 @@ Item {
 
           Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            textFormat: Text.PlainText // backend text is never markup (Omarchy's rule for plugins)
+            textFormat: Text.PlainText
             text: backend.ready ? backend.label : (backend.running ? "Starting…" : "Backend stopped: " + backend.lastError)
             color: Commons.Color.popups.text
             font.family: Style.font.family

@@ -1,6 +1,3 @@
-// Tests for Backend.cs and Probe.cs. Plain C#: no Qt, no window. Run: dotnet run --project tests
-// The bridge code refers to the app's backend class as AppBackend (the app build generates
-// this alias from <BackendType> in the csproj; the tests have to say it themselves).
 global using AppBackend = Backend;
 
 var failures = 0;
@@ -47,14 +44,12 @@ Check("durations", Probe.Duration(3.2) == "3h 12m" && Probe.Duration(0.5) == "30
 Check("uptime", Probe.Uptime(129568) == "1d 11h" && Probe.Uptime(3700) == "1h 1m");
 Check("nice scale tops", Probe.NiceCeiling(70 * 1024) == 100 * 1024 && Probe.NiceCeiling(3 * 1024 * 1024) == 5 * 1024 * 1024 && Probe.NiceCeiling(600 * 1024) == 1024 * 1024);
 
-// The real machine: two ticks give one CPU and network sample and sane readings.
 var b = new Backend();
 b.Tick();
 Check("cpu reading in range", b.CpuPercent is >= 0 and <= 100 && b.CpuHistory.Count == 1 && b.Cores.Count == Probe.ParseStat(File.ReadAllText("/proc/stat")).Count - 1);
 Check("memory reading", b.MemPercent is > 0 and < 100 && b.MemUsed.Contains(" of "));
 Check("network sample", b.DownHistory.Count == 1 && b.Down.EndsWith("/s"));
 Check("cpu temperature read", !b.HasTemp || (b.CpuTemp is > 0 and < 150 && b.TempHistory.Count == 2));
-// In a container, / is an overlay rather than a block device, and isn't listed.
 var rootIsDevice = Probe.ParseMounts(File.ReadAllText("/proc/mounts")).Any(m => m.Mount == "/");
 Check("root volume listed", !rootIsDevice || b.Disks.Any(d => d.Mount == "/" && d.Fraction is > 0 and < 1));
 for (var i = 0; i < Backend.Samples + 10; i++) b.Tick();

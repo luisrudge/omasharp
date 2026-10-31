@@ -9,7 +9,6 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace Omasharp.Analyzers;
 
-/// <summary>Checks the backend class (what QML sees as `backend`) against what the bridge can do.</summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class BackendAnalyzer : DiagnosticAnalyzer
 {
@@ -17,8 +16,6 @@ public sealed class BackendAnalyzer : DiagnosticAnalyzer
         Rules.ReservedName, Rules.SameQmlName, Rules.Invisible, Rules.SilentSetter, Rules.StaleComputed,
         Rules.UnknownNotify, Rules.CantCall, Rules.CantReturn, Rules.AsyncVoid, Rules.ConfigureAwaitFalse);
 
-    // Calls that tell QML a property changed: BackendBase's, and the usual names in classes that
-    // implement INotifyPropertyChanged themselves.
     static readonly HashSet<string> s_notifiers = new()
     {
         "Set", "Notify", "OnPropertyChanged", "RaisePropertyChanged", "NotifyPropertyChanged", "SetProperty", "SetField",
@@ -96,13 +93,11 @@ public sealed class BackendAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        // Overloads: QML calls by name and picks an overload by argument count only.
         foreach (var group in visible.OfType<IMethodSymbol>().GroupBy(m => m.Name).Where(g => g.Count() > 1))
             foreach (var m in group)
                 c.ReportDiagnostic(Diagnostic.Create(Rules.CantCall, Where(m),
                     $"QML can't reliably call '{m.Name}': it's overloaded, and QML picks an overload by argument count only; give each overload its own name"));
 
-        // Different C# names, one QML name (Count and count, or a property and a method).
         foreach (var group in visible.GroupBy(m => QmlNames.Of(m.Name)))
         {
             var names = group.Select(m => m.Name).Distinct().ToList();
@@ -132,8 +127,6 @@ public sealed class BackendAnalyzer : DiagnosticAnalyzer
         var syntax = p.DeclaringSyntaxReferences.Select(r => r.GetSyntax(c.CancellationToken)).OfType<PropertyDeclarationSyntax>().FirstOrDefault();
         if (syntax == null) return;
 
-        // A setter that doesn't notify is only a bug when C# itself changes the property later:
-        // QML's own writes come back to QML anyway.
         if (setter != null && !setter.IsInitOnly)
         {
             var set = syntax.AccessorList?.Accessors.FirstOrDefault(a => a.IsKind(SyntaxKind.SetAccessorDeclaration));
@@ -198,8 +191,6 @@ public sealed class BackendAnalyzer : DiagnosticAnalyzer
     static bool IsAutoProperty(PropertyDeclarationSyntax p) =>
         p.ExpressionBody == null && p.AccessorList != null && p.AccessorList.Accessors.All(a => a.Body == null && a.ExpressionBody == null);
 
-    // What a getter reads that C# changes after startup: fields written outside constructors, and
-    // properties C# writes there or QML can set; through other computed properties too.
     static void MutableInputs(SymbolAnalysisContext c, INamedTypeSymbol type, IPropertySymbol p, Writes writes,
         SortedSet<string> inputs, HashSet<IPropertySymbol> seen, int depth)
     {
@@ -245,7 +236,6 @@ public sealed class BackendAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // Notify("Name") / Set(ref _f, v, "Name") / OnPropertyChanged("Name"): the name must be a public property.
         if (!s_notifiers.Contains(target.Name)) return;
         var owner = target.ContainingType;
         if (!backends.IsBackendBase(owner) && !SymbolEqualityComparer.Default.Equals(owner?.OriginalDefinition, type.OriginalDefinition)) return;
@@ -262,8 +252,6 @@ public sealed class BackendAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    // The parameter that takes property names: [CallerMemberName], or a string(s) parameter called
-    // name/names/propertyName (BackendBase.Notify(params string[] names), Set(..., name)).
     static bool IsPropertyNameParameter(IParameterSymbol p) =>
         (p.Type.SpecialType == SpecialType.System_String || p.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_String })
         && (p.GetAttributes().Any(a => a.AttributeClass?.Name == "CallerMemberNameAttribute")
@@ -277,8 +265,6 @@ public sealed class BackendAnalyzer : DiagnosticAnalyzer
     }
 }
 
-/// <summary>What a backend class says about its own property names: nameof(X) and "X" anywhere in it
-/// (a Notify somewhere, most likely), and whether it ever notifies every property at once.</summary>
 sealed class Mentions
 {
     public HashSet<string> Names { get; } = new();
@@ -300,12 +286,10 @@ sealed class Mentions
                     case LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } s:
                         m.Names.Add(s.Token.ValueText);
                         break;
-                    // Notify("") / OnPropertyChanged(null): every property changed.
                     case InvocationExpressionSyntax i when i.ArgumentList.Arguments.Any(x => IsEmpty(x.Expression))
                         && i.Expression.ToString().EndsWith("Notify", System.StringComparison.Ordinal) | i.Expression.ToString().EndsWith("PropertyChanged", System.StringComparison.Ordinal):
                         m.NotifiesAll = true;
                         break;
-                    // new PropertyChangedEventArgs(null) / ("") / (string.Empty): every property changed.
                     case ObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 1 } o
                         when o.Type.ToString().EndsWith("PropertyChangedEventArgs", System.StringComparison.Ordinal) && IsEmpty(o.ArgumentList.Arguments[0].Expression):
                     case ImplicitObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: 1 } io when IsEmpty(io.ArgumentList.Arguments[0].Expression):

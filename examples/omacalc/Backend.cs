@@ -1,7 +1,3 @@
-// omacalc's C++ backend (src/backend.cpp, src/main.cpp in github.com/omacom/omacalc, MIT,
-// see LICENSE), ported to C#. The calculator logic is a line-for-line port. Platform glue differs:
-// clipboard through wl-copy/wl-paste, text scale through gsettings, and dark
-// mode from the Omarchy theme only (the portal's color-scheme is skipped).
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -56,7 +52,6 @@ public sealed class Backend : INotifyPropertyChanged, IDisposable
     public string ThemeAccent { get; private set; } = "#5584aa";
     public string ThemeSelection { get; private set; } = "#186a9a";
 
-    // Launch size for the current text scale, read once by the window.
     public int DefaultWidth => Math.Max(300, (int)Math.Round(400 * SafeScale));
     public int DefaultHeight => Math.Max(430, (int)Math.Round(568 * SafeScale));
     double SafeScale => double.IsFinite(TextScale) && TextScale > 0 ? TextScale : 1.0;
@@ -83,7 +78,6 @@ public sealed class Backend : INotifyPropertyChanged, IDisposable
 
     public void PasteNumber() => PasteText(Run("wl-paste", null, "--no-newline") ?? "");
 
-    // The clipboard-free half of PasteNumber, so tests don't touch the real clipboard.
     internal void PasteText(string raw)
     {
         var text = raw.Trim().Replace(Minus, "-").Replace(" ", "");
@@ -149,7 +143,6 @@ public sealed class Backend : INotifyPropertyChanged, IDisposable
         _entry = "";
     }
 
-    // iOS-style percent: after + or −, x% is x percent of the running total.
     void PressPercent()
     {
         if (_errored) return;
@@ -228,7 +221,6 @@ public sealed class Backend : INotifyPropertyChanged, IDisposable
             operators.Add(tokens[i]);
             values.Add(operand);
         }
-        // ^ right-to-left, then × ÷ left-to-right, then + −.
         for (var i = operators.Count - 1; i >= 0; i--)
         {
             if (operators[i] != Power) continue;
@@ -257,7 +249,6 @@ public sealed class Backend : INotifyPropertyChanged, IDisposable
 
     internal static string FormatNumber(double value) => FormatG(value == 0 ? 0 : value, 15);
 
-    // QString::number(value, 'g', precision): lowercase e, at least two exponent digits.
     static string FormatG(double value, int precision)
     {
         var s = value.ToString("G" + precision, C);
@@ -288,7 +279,6 @@ public sealed class Backend : INotifyPropertyChanged, IDisposable
 
     void Notify([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new(name));
 
-    // ponytail: gsettings, read once at launch like omacalc's blocking portal read; live changes not followed.
     static double ReadTextScale()
     {
         var text = Run("gsettings", null, "get", "org.gnome.desktop.interface", "text-scaling-factor");
@@ -339,13 +329,11 @@ public sealed class Backend : INotifyPropertyChanged, IDisposable
         Notify(nameof(ThemeSelection));
     }
 
-    // The bridge calls this when the app exits.
     public void Dispose() => _themeWatcher?.Dispose();
 
     void WatchOmarchyTheme()
     {
         if (!Directory.Exists(CurrentDir)) return;
-        // Omarchy swaps current/theme for a new directory on a theme change; watch below current/.
         _themeWatcher = new FileSystemWatcher(CurrentDir) { IncludeSubdirectories = true, EnableRaisingEvents = true };
         FileSystemEventHandler reload = (_, _) => LoadOmarchyTheme();
         _themeWatcher.Changed += reload;
@@ -353,7 +341,6 @@ public sealed class Backend : INotifyPropertyChanged, IDisposable
         _themeWatcher.Renamed += (_, _) => LoadOmarchyTheme();
     }
 
-    // A leading # is a bare hex color rather than a comment.
     static string WithoutTomlComment(string text)
     {
         var value = text.Trim();
@@ -387,7 +374,6 @@ public sealed class Backend : INotifyPropertyChanged, IDisposable
     {
         try
         {
-            // wl-copy stays behind serving the clipboard, so only read output when there is no input.
             var start = new ProcessStartInfo(file) { RedirectStandardOutput = input == null, RedirectStandardInput = input != null };
             foreach (var a in args) start.ArgumentList.Add(a);
             using var process = Process.Start(start)!;

@@ -1,6 +1,3 @@
-// check.sh support (the Omasharp skill): with OMASHARP_TEXT_DUMP=<file>, write the visible texts
-// under `roots` there, for both dev harnesses (dev-shell.qml, dev-bar.qml).
-// Same output as the window version in bridge/host/textdump.cpp; keep them in step.
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -20,7 +17,7 @@ Scope {
         if (!o || seen.indexOf(o) >= 0) return
         seen.push(o)
         if (o.visible === false || (o.opacity !== undefined && o.opacity <= 0.01)) return
-        var masked = typeof o.echoMode === "number" && o.echoMode !== 0 // password fields: never the secret
+        var masked = typeof o.echoMode === "number" && o.echoMode !== 0
         var text = (!masked && typeof o.text === "string" && o.text) || (typeof o.displayText === "string" && o.displayText) || ""
         if (!text && typeof o.placeholderText === "string" && o.placeholderText) text = "(placeholder) " + o.placeholderText
         if (text && kind(o) !== "PlaceholderText") out.push("  ".repeat(depth) + kind(o) + ": " + text.replace(/\s+/g, " ")

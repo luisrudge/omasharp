@@ -1,29 +1,14 @@
 #!/bin/sh
-# shot.sh OUT.png LOG CMD...: screenshot an app without touching the user's screen.
-# Starts a private nested Hyprland (minimal config, no autostart, exports nothing to the
-# session) on a hidden special workspace, runs CMD inside it on a private D-Bus session,
-# optionally types keys into it with wtype (input stays inside the nested compositor),
-# screenshots, and cleans up. Exits 1 if the app didn't start, died, or the shot failed.
-# Works whether or not the user's session is locked. check.sh runs it.
-# Optional, read from files so no shell ever evaluates them:
-#   OMASHARP_SHOT_KEYS_FILE  text plus {Tab} {Enter} {Up} {Ctrl+a} {Alt+1} ... (see keys.py)
-#   OMASHARP_SHOT_ARGS_FILE  extra app arguments, split on whitespace
-#   OMASHARP_SHOT_ENV_FILE   environment variables for the app, one KEY=VALUE per line
-# Also: OMASHARP_SHOT_SIZE (WxH logical pixels at 1.5x; odd numbers are rounded down), OMASHARP_SHOT_WAIT (seconds before keys),
-# OMASHARP_SHOT_FLOAT=1 (float the window at its own size, centred, instead of tiling it).
-# (The Omasharp repo's tools/session.sh has a copy of the session lookup; keep them in step.)
 set -u
 out=$1; log=$2; shift 2
 here=$(cd "$(dirname "$0")" && pwd)
-sq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; } # shell-quote one word
-q() { printf ' '; sq "$1"; }                                          # ... after a space
+sq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+q() { printf ' '; sq "$1"; }
 size=${OMASHARP_SHOT_SIZE:-}; [ -n "$size" ] || size=1280x960
-# No leading zeros (sh reads them as octal), and at least 2x2 (1.5x rounds odd sizes down).
 { printf '%s' "$size" | grep -Eqx '[1-9][0-9]*x[1-9][0-9]*' && [ "${size%x*}" -ge 2 ] && [ "${size#*x}" -ge 2 ]; } ||
   { echo "shot: bad size '$size' (use WxH, at least 2x2, like 1280x960)" >&2; exit 1; }
 keys=; [ -n "${OMASHARP_SHOT_KEYS_FILE:-}" ] && [ -s "$OMASHARP_SHOT_KEYS_FILE" ] && keys=$(cat "$OMASHARP_SHOT_KEYS_FILE")
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-# The user's session: the oldest Hyprland instance that answers (ignore stale env vars).
 main_sig=; main_wl=
 for s in $(hyprctl instances -j 2>/dev/null | jq -r 'sort_by(.time) | .[].instance'); do
   if HYPRLAND_INSTANCE_SIGNATURE=$s hyprctl monitors >/dev/null 2>&1; then
@@ -45,8 +30,6 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# 1. The nested compositor's window lives on a hidden special workspace of the user's session:
-# no monitor is added (the user's layout and pointer are untouched) and it never shows.
 ws="special:omasharp-shot"
 { echo '#!/bin/sh'; echo "echo \$\$ >$(q "$tmp/nest.pid")"
   echo "export HYPRLAND_NO_SD_VARS=1 HYPRLAND_NO_SD_NOTIFY=1 HYPRLAND_NO_CRASHREPORTER=1 WAYLAND_DISPLAY=$main_wl"
@@ -54,7 +37,6 @@ ws="special:omasharp-shot"
   echo "exec Hyprland --config$(q "$here/shot-hyprland.lua") >$(q "$tmp/hyprland.log") 2>&1"; } > "$tmp/nest"
 chmod +x "$tmp/nest"
 main dispatch "hl.dsp.exec_cmd(\"$tmp/nest\", { workspace = \"$ws silent\" })" >/dev/null
-# Find our instance by its pid (the script execs Hyprland), so parallel shots never mix up.
 for _ in $(seq 100); do
   nest_pid=$(cat "$tmp/nest.pid" 2>/dev/null)
   [ -n "$nest_pid" ] && nest_sig=$(hyprctl instances -j | jq -r --argjson p "$nest_pid" '.[] | select(.pid == $p) | .instance')
@@ -66,10 +48,7 @@ nest_wl=$(hyprctl instances -j | jq -r --arg s "$nest_sig" '.[] | select(.instan
 export WAYLAND_DISPLAY="$nest_wl"
 sleep 0.5
 
-# 2. Its own headless output to draw the app on.
 hyprctl output create headless shot >/dev/null
-# The screen the app sees: OMASHARP_SHOT_SIZE logical pixels (default 1280x960) at 1.5x scale.
-# 1.5x needs even logical sizes (an odd one has no whole-pixel mode, and Hyprland drops to 1x).
 w=${size%x*}; h=${size#*x}; w=$((w / 2 * 2)); h=$((h / 2 * 2))
 [ "${w}x$h" = "$size" ] || echo "shot: using ${w}x$h, not $size: 1.5x scale needs even sizes"
 hyprctl eval "hl.monitor({ output = \"shot\", mode = \"$((w * 3 / 2))x$((h * 3 / 2))\", position = \"auto\", scale = 1.5 })" >/dev/null
@@ -80,19 +59,15 @@ hyprctl dispatch 'hl.dsp.focus({ monitor = "shot" })' >/dev/null
 nws=$(hyprctl monitors -j | jq -r '.[] | select(.name=="shot") | .activeWorkspace.id')
 [ -n "${OMASHARP_SHOT_FLOAT:-}" ] && hyprctl eval 'hl.window_rule({ match = { class = ".*" }, float = true, center = true })' >/dev/null
 
-# 3. The app.
 { echo '#!/bin/sh'; echo "echo \$\$ > '$tmp/app.pid'"
-  # The caller's variables first, so the ones below (which keep the app inside this compositor) win.
   if [ -n "${OMASHARP_SHOT_ENV_FILE:-}" ] && [ -s "$OMASHARP_SHOT_ENV_FILE" ]; then
     while IFS= read -r e; do
       printf '%s' "${e%%=*}" | grep -Eqx '[A-Za-z_][A-Za-z0-9_]*' || { echo "shot: bad environment variable '$e' (use KEY=VALUE)" >&2; exit 1; }
-      printf '%s\n' "export ${e%%=*}=$(sq "${e#*=}")" # not echo: some shells' echo rewrites backslashes
+      printf '%s\n' "export ${e%%=*}=$(sq "${e#*=}")"
     done < "$OMASHARP_SHOT_ENV_FILE"
   fi
   echo "export OMASHARP_PANEL_PAYLOAD='{\"screen\":\"shot\"}' QT_FORCE_STDERR_LOGGING=1 OMASHARP_TEXT_DUMP=$(sq "$tmp/text.txt")"
   echo "export WAYLAND_DISPLAY=$(sq "$nest_wl") XDG_RUNTIME_DIR=$(sq "$XDG_RUNTIME_DIR"); unset DISPLAY WAYLAND_SOCKET QT_QPA_PLATFORM"
-  # Keep the app off the user's desktop beyond the display: no portal dialogs, browser tabs or
-  # notifications there (its own D-Bus session; the generic Qt theme, so dialogs draw in-window).
   echo "export OMASHARP_PLATFORMTHEME=generic QT_QPA_PLATFORMTHEME=generic NO_AT_BRIDGE=1 BROWSER=true"
   extra=; [ -n "${OMASHARP_SHOT_ARGS_FILE:-}" ] && [ -s "$OMASHARP_SHOT_ARGS_FILE" ] && extra=$(cat "$OMASHARP_SHOT_ARGS_FILE")
   printf 'exec dbus-run-session --config-file=%s --' "$(sq "$here/shot-dbus.conf")"; for a in "$@"; do q "$a"; done
@@ -108,7 +83,6 @@ if [ -n "$keys" ]; then
   sleep 0.2; python3 "$here/keys.py" "$keys"; sleep 0.8
 fi
 sleep 0.3
-# A window bigger than the screen is clipped (a floating one keeps its own size).
 size_now=$(hyprctl clients -j | jq -r ".[] | select(.workspace.id==$nws) | \"\\(.size[0])x\\(.size[1])\"" | head -1)
 if [ -n "$size_now" ] && { [ "${size_now%x*}" -gt "$w" ] || [ "${size_now#*x}" -gt "$h" ]; }; then
   echo "shot: window is $size_now, larger than the ${w}x$h screen: use --size" >&2

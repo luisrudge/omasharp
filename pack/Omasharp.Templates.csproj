@@ -1,8 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- The dotnet new template package: template/ as is (an app's starter files, its bridge/ and
-       its .agents/skills/omasharp/), plus bridge/MANIFEST, the fingerprints `dotnet build -t:UpdateBridge` uses.
-       Build: dotnet pack pack/Omasharp.Templates.csproj -o artifacts
-       Try:   dotnet new install artifacts/Omasharp.Templates.<version>.nupkg -->
   <PropertyGroup>
     <PackageType>Template</PackageType>
     <PackageId>Omasharp.Templates</PackageId>
@@ -28,7 +24,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Validates template.json when packing. -->
     <PackageReference Include="Microsoft.TemplateEngine.Authoring.Tasks" Version="10.0.402" PrivateAssets="all" />
   </ItemGroup>
 
@@ -37,12 +32,9 @@
     <None Include="$(MSBuildThisFileDirectory)../assets/icon.png" Pack="true" PackagePath="/" />
     <Content Include="$(_Template)**" PackagePath="content/omarchy-app/"
              Exclude="$(_Template)**/bin/**;$(_Template)**/obj/**;$(_Template)plugin/Backend.qml;$(_Template)**/*.upstream;$(_Template)**/*.pyc;$(_Template)bridge/host/Makefile;$(_Template)bridge/host/*.o;$(_Template)bridge/host/moc_*;$(_Template)bridge/host/*.moc" />
-    <!-- Generated below before the package is assembled. -->
     <Content Include="$(MSBuildThisFileDirectory)obj/MANIFEST" PackagePath="content/omarchy-app/bridge/" />
   </ItemGroup>
 
-  <!-- bridge/MANIFEST: sha256 of every bridge and skill file as shipped, so an app's update can
-       tell its own customizations apart from upstream changes. -->
   <Target Name="BridgeManifest" BeforeTargets="Build;_GetPackageFiles">
     <MakeDir Directories="$(MSBuildThisFileDirectory)obj" />
     <Exec Command="sh &quot;$(MSBuildThisFileDirectory)manifest.sh&quot; &quot;$(MSBuildThisFileDirectory)obj/MANIFEST&quot;" />

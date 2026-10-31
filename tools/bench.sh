@@ -1,11 +1,4 @@
 #!/bin/sh
-# bench.sh LABEL CMD [ARGS...]: one run on a hidden special workspace of the real session.
-# Prints: label class window_ms rss_kb pss_kb threads procs idle_cpu_permille wakeups_s close_ms
-# (class: the window's class, so a wrong match shows.)
-# Memory, threads, CPU and wake-ups cover the whole process tree (app + any child backend).
-# BENCH_IDLE=0 skips the 10 s idle sample.
-# Each run gets a special workspace of its own and finds the app by its pid (the launcher execs
-# it), so bench.sh runs at the same time never measure, close or kill each other's apps.
 set -u
 label=$1; shift
 # shellcheck source=tools/session.sh
@@ -21,7 +14,6 @@ cleanup() {
   [ -n "$ok" ] && rm -f "$log"
 }
 trap cleanup EXIT
-# A hidden special workspace: no monitor is added to the user's session (layout and pointer untouched).
 ws="special:omasharp-bench-$$"
 launcher=$(mktemp "$tmp/launch.XXXXXX"); log=$tmp/$label.$$.log
 { echo '#!/bin/sh'; echo "echo \$\$ > '$launcher.pid'"; printf 'exec'; for a in "$@"; do printf " '%s'" "$a"; done; echo " >'$log' 2>&1"; } >"$launcher"; chmod +x "$launcher"

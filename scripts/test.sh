@@ -1,28 +1,12 @@
 #!/bin/sh
-# scripts/test.sh: the whole check, as CI runs it. Needs: dotnet SDK 10+, qmake6/g++ (qt6-base,
-# qt6-declarative), clang (native AOT link). Uses a private template store and temp folders:
-# it never touches your installed templates, your screen or your files.
-#   1. the analyzers' unit tests, then pack them and the template (generated apps restore
-#   Omasharp.Analyzers from that local package); 2. a new window app through the skill's check.sh
-#   (unit tests, dev and native AOT builds, each run headless on Qt's offscreen platform, checking
-#   the visible text; --size, --env, empty XDG dirs, DrawView's shapes, lines and areas, the theme
-#   name); a new panel app: build, tests, AOT publish, its stdio protocol; a new bar widget app: the
-#   same, its manifest, -t:Install over its running backend, and (with Hyprland) check.sh showing the
-#   icon and the dropdown, --keys and a vertical bar; 3. every Omasharp rule
-#   fails a generated app's build; 4. bridge update on a fresh app is a no-op; 5. SQLite the way the skill
-#   says (window app installed and run twice, panel), then -t:Install with the app's own app.desktop
-#   and -t:Uninstall; a release (-t:Package) installed, updated and removed by its install.sh as
-#   users run it; 6. the examples, through check.sh. Warnings fail every build (Omasharp.targets).
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d "${TMPDIR:-/tmp}/omasharp-test.XXXXXX")
-# A version of the analyzers package for this run only, removed from the NuGet cache afterwards.
 export OmasharpAnalyzersVersion="0.0.0-test.$$"
 nuget_cache=$(dotnet nuget locals global-packages --list | sed 's/^global-packages: //')
 trap 'rm -rf "$work" "${nuget_cache%/}/omasharp.analyzers/$OmasharpAnalyzersVersion"; rmdir "${nuget_cache%/}/omasharp.analyzers" 2>/dev/null || true' EXIT
 export DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1
 export OMASHARP_TEMPLATE_HIVE="$work/hive"
-# Panel builds construct the backend (--qml-shim), and apps keep their data here: never in yours.
 export XDG_DATA_HOME="$work/data"
 step() { printf '\n== %s\n' "$*"; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -33,7 +17,6 @@ tail -1 "$work/analyzers.log"
 
 step "pack the analyzers and the template"
 dotnet pack "$root/analyzers/Omasharp.Analyzers" -o "$work/pkg" -p:Version="$OmasharpAnalyzersVersion" -v quiet -nologo >/dev/null
-# Generated apps (under $work) find Omasharp.Analyzers here; nuget.org stays for everything else.
 printf '<configuration><packageSources><add key="omasharp-test" value="%s" /></packageSources></configuration>\n' "$work/pkg" > "$work/NuGet.config"
 dotnet pack "$root/pack" -o "$work/pkg" -v quiet -nologo >/dev/null
 dotnet new install "$work"/pkg/Omasharp.Templates.*.nupkg --debug:custom-hive "$OMASHARP_TEMPLATE_HIVE" >/dev/null
@@ -49,7 +32,6 @@ done
 grep -q "  .agents/skills/omasharp/SKILL.md$" "$work/Win/bridge/MANIFEST" || fail "MANIFEST doesn't cover the skill"
 grep -qx "@AGENTS.md" "$work/Win/CLAUDE.md" || fail "CLAUDE.md doesn't import AGENTS.md"
 cmp -s "$root/template/.github/workflows/release.yml" "$work/Win/.github/workflows/release.yml" || fail "the release workflow changed on the way into the app"
-# The release workflow's tag check reads the version this way.
 [ "$(cd "$work/Win" && dotnet msbuild -getProperty:Version)" = 0.1.0 ] || fail "window app: no <Version> 0.1.0"
 
 step "--app-id sets the app id"
@@ -65,16 +47,13 @@ step "check.sh --size with odd numbers keeps the 1.5x scale (private compositor;
 if hyprctl instances -j 2>/dev/null | jq -e 'length > 0' >/dev/null 2>&1; then
   (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --no-tests --size 625x751) >"$work/win-size.log" 2>&1 || { tail -20 "$work/win-size.log"; fail "check.sh --size 625x751"; }
   grep -q "using 624x750, not 625x751" "$work/win-size.log" || { cat "$work/win-size.log"; fail "check.sh --size: no note about the rounded size"; }
-  # 624x750 logical pixels at 1.5x: a 936x1125 screenshot (the PNG's IHDR).
   px=$(python3 -I -c 'import struct, sys; print("%dx%d" % struct.unpack(">II", open(sys.argv[1], "rb").read(24)[16:24]))' "$work/Win/obj/shot.png")
   echo "screenshot: $px"
   [ "$px" = 936x1125 ] || fail "check.sh --size 625x751: the screenshot is $px, not 936x1125 (1.5x)"
-  # Single digits are sizes too.
   (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --no-tests --size 8x6) >"$work/win-size-small.log" 2>&1 || { tail -20 "$work/win-size-small.log"; fail "check.sh --size 8x6"; }
 else
   echo "skipped: no Hyprland session"
 fi
-# Sizes it can't use fail before anything starts: 1 (0 at 1.5x), 0, and a leading zero (octal to sh).
 for bad in 1x8 0x8 08x8; do
   OMASHARP_SHOT_SIZE=$bad sh "$root/template/.agents/skills/omasharp/scripts/shot.sh" "$work/bad.png" "$work/bad.log" true 2>"$work/bad-size.err" && fail "shot.sh: size $bad was accepted"
   grep -q "bad size '$bad'" "$work/bad-size.err" || { cat "$work/bad-size.err"; fail "shot.sh: no message for size $bad"; }
@@ -101,7 +80,6 @@ sed -i '/^public class Backend : BackendBase$/{n;a\
     public string Seed { get; }
 }' "$work/Win/Backend.cs"
 sed -i '0,/id: win/s//id: win\n  Label { text: "seed: " + backend.seed }/' "$work/Win/Main.qml"
-# A stand-in for the user's real data folder: a check must leave it empty.
 real=$work/real-data; mkdir -p "$real" "$work/seed/data/win"; echo planted > "$work/seed/data/win/seed.txt"
 xcheck() { (cd "$work/Win" && XDG_DATA_HOME=$real sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests "$@"); }
 xcheck >"$work/win-xdg.log" 2>&1 || { tail -20 "$work/win-xdg.log"; fail "check.sh: app writing to XDG_DATA_HOME"; }
@@ -115,7 +93,6 @@ xcheck --real-data >"$work/win-real.log" 2>&1 || { tail -20 "$work/win-real.log"
 [ -f "$real/win/written.txt" ] || fail "check.sh --real-data: the app didn't get the real XDG_DATA_HOME"
 xcheck --env XDG_DATA_HOME=/tmp >"$work/win-xdg-env.log" 2>&1 && fail "check.sh --env: XDG_DATA_HOME was accepted"
 grep -q "can't set XDG_DATA_HOME" "$work/win-xdg-env.log" || { cat "$work/win-xdg-env.log"; fail "check.sh --env: no message for XDG_DATA_HOME"; }
-# Data it can't remove (a read-only folder) fails the check instead of starting from it.
 if [ "$(id -u)" != 0 ]; then
   locked=$work/Win/obj/omasharp/xdg/data/locked; mkdir -p "$locked"; touch "$locked/left"; chmod 555 "$locked"
   xcheck >"$work/win-xdg-locked.log" 2>&1 && { chmod 755 "$locked"; fail "check.sh: ran on data it couldn't remove"; }
@@ -149,14 +126,10 @@ Window {
 }
 EOF
 (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "SNAPSHOT=$work/box.ppm") >"$work/win-draw.log" 2>&1 || { tail -20 "$work/win-draw.log"; fail "DrawView app"; }
-# A second shape far away: the image stays bounded (40000 x 40000 pixels would be 6 GB) and the box still shows.
-# The share of red pixels in the grabbed DrawView (binary PPM: four header fields, then RGB bytes).
 red=$(python3 -I -c 'import sys; d = open(sys.argv[1], "rb").read(); f = d.split(maxsplit=4); n = int(f[1]) * int(f[2]); px = d[-n * 3:]
 print(sum(px[i:i + 3] == b"\xff\x00\x00" for i in range(0, n * 3, 3)) * 100 // n)' "$work/box.ppm" 2>/dev/null || echo 0)
 echo "red: $red% of the DrawView"
 [ "$red" -ge 90 ] || fail "DrawView: the software renderer drew no shapes"
-# A long, thin drawing (2e8 x 1, a 230 MB image without a cap on each side) stays bounded too:
-# the app's peak memory after drawing both.
 peak=$(sed -n 's/.*peak MB: \([0-9]*\).*/\1/p' "$work/Win/obj/shot.txt")
 echo "peak memory: ${peak:-?} MB"
 [ -n "$peak" ] && [ "$peak" -lt 300 ] || fail "DrawView: the software renderer's image wasn't bounded (peak ${peak:-?} MB)"
@@ -193,8 +166,6 @@ EOF
 (cd "$work/Win" && dotnet run --project tests) >"$work/drawing-tests.log" 2>&1 || { tail -20 "$work/drawing-tests.log"; fail "Drawing: encoding"; }
 grep -E "^(ok|FAIL)" "$work/drawing-tests.log"
 cp "$work/Tests.cs.good" "$work/Win/tests/Tests.cs"
-# A line over an area (a peak the corner must fill), a steep spike whose corner must be cut, and
-# the same spike half transparent on white (drawn once everywhere: no darker overlap inside it).
 sed -i '/^public class Backend : BackendBase$/{n;a\
     public string Snapshot => Environment.GetEnvironmentVariable("SNAPSHOT") ?? "";\
     public void Draw() { var d = new Drawing(); (double X, double Y)[] p = [(0, 80), (70, 20), (140, 80)]; d.Area(p, 100, Color.Parse("#0000ff")); d.Polyline(p, 4, Color.Parse("#ff0000")); d.Polyline([(160, 100), (165, 30), (170, 100)], 4, Color.Parse("#ff0000")); d.Rect(175, 0, 25, 100, Color.Parse("#ffffff")); d.Polyline([(180, 100), (185, 30), (190, 100)], 4, Color.Parse("#80ff0000")); Bridge.Show("chart", d); }
@@ -214,7 +185,6 @@ Window {
 }
 EOF
 (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "SNAPSHOT=$work/chart.ppm") >"$work/win-chart.log" 2>&1 || { tail -20 "$work/win-chart.log"; fail "DrawView chart app"; }
-# Pixels of the grabbed DrawView (binary PPM), in the drawing's coordinates.
 python3 -I - "$work/chart.ppm" <<'EOF' || fail "DrawView: lines and areas aren't drawn as expected"
 import sys
 d = open(sys.argv[1], "rb").read(); f = d.split(maxsplit=4); w, h = int(f[1]), int(f[2]); px = d[-w * h * 3:]
@@ -256,7 +226,6 @@ Window {
 EOF
 (cd "$work/Win" && sh .agents/skills/omasharp/scripts/check.sh --offscreen --no-tests --env "HOME=$work/theme-home") >"$work/win-theme.log" 2>&1 || { tail -20 "$work/win-theme.log"; fail "theme name app"; }
 { grep -q "qml: tokyo-night" "$work/Win/obj/shot.txt" && grep -q "cs: tokyo-night" "$work/Win/obj/shot.txt"; } || { cat "$work/Win/obj/shot.txt"; fail "theme name: not read"; }
-# The same build, run by hand: switch the theme the way omarchy-theme-set does (theme.name rewritten).
 set --; while IFS= read -r a; do set -- "$@" "$a"; done < "$work/Win/obj/omasharp/launch"
 t=$work/theme.txt
 HOME=$work/theme-home QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software OMASHARP_TEXT_DUMP="$t" timeout 20 "$@" >"$work/theme-run.log" 2>&1 &
@@ -280,7 +249,6 @@ cp "$work/Main.qml.good" "$work/Win/Main.qml"
 step "panel app: build, tests, AOT publish, stdio protocol"
 new -n Pan --kind panel
 [ ! -e "$work/Pan/.github" ] || fail "panel app: has the window apps' release workflow"
-# Names that are Visual Basic keywords build: the app is C# only (CA1716 is off in .editorconfig).
 printf '%s\n' 'public record Step(int Index);' 'public interface ICursor { void Next(); }' > "$work/Pan/Keywords.cs"
 (cd "$work/Pan" && dotnet build -v quiet -nologo && dotnet run --project tests && dotnet publish -v quiet -nologo) >"$work/pan.log" 2>&1 || { tail -30 "$work/pan.log"; fail "panel app"; }
 grep -E "warning IL[0-9]+" "$work/pan.log" && fail "panel app: AOT warnings"
@@ -306,8 +274,6 @@ grep -E "warning IL[0-9]+" "$work/bar.log" && fail "bar widget app: AOT warnings
 reply=$( (printf '%s\n' '{"op":"call","id":1,"name":"increment","args":[]}' '{"op":"get","id":2,"name":"label"}'; sleep 0.5) | "$work/Bar/plugin/bin/Bar")
 echo "$reply" | grep -q '"op":"hello"' || fail "bar widget: no hello"
 echo "$reply" | grep -q '"value":"Counted 1 time"' || fail "bar widget: increment didn't reach label"
-# A bar widget's backend runs all session, so Install replaces a running binary. omarchy and
-# omarchy-shell are stand-ins here: the real shell never hears about it.
 stubs=$work/stubs; mkdir -p "$stubs"
 cat > "$stubs/omarchy" <<EOF
 #!/bin/sh
@@ -343,7 +309,6 @@ fi
 
 step "every Omasharp rule fails a generated app's build, with its message"
 new -n Lint
-# One mistake per rule (OMASHARP001-010), plus a method CA1822 would want static.
 cat > "$work/lint.cs" <<'EOF'
     public void Delete() { }
     public int Total => 1;
@@ -384,7 +349,6 @@ echo "$out" | grep -q " 0 updated, 0 added, 0 removed" || fail "update: unexpect
 
 step "SQLite as the skill's references/sqlite.md says: window app (AOT, -t:Install, kept across runs), panel"
 ref=$root/template/.agents/skills/omasharp/references/sqlite.md
-# The reference's own code: its n-th unindented code block in <lang>.
 block() { awk -v lang="$1" -v n="$2" '$0 == "```" lang { i++; on = (i == n); next } /^```$/ { on = 0 } on' "$ref"; }
 block xml 1 > "$work/sqlite-refs.xml"
 for app in Notes NotesPanel; do
@@ -392,7 +356,6 @@ for app in Notes NotesPanel; do
   block csharp 1 > "$work/$app/Db.cs"; block csharp 2 > "$work/$app/Backend.cs"
   awk -v refs="$work/sqlite-refs.xml" '/<Import Project=/ { while ((getline l < refs) > 0) print l } 1' "$work/$app/$app.csproj" > "$work/csproj" && mv "$work/csproj" "$work/$app/$app.csproj"
 done
-# Every start adds a note, so the second start shows both.
 cat > "$work/Notes/Main.qml" <<'EOF'
 import QtQuick
 import QtQuick.Controls
@@ -405,7 +368,6 @@ ApplicationWindow {
   Component.onCompleted: backend.add("run " + (backend.notes.length + 1))
 }
 EOF
-# Installed into a private HOME, where the app also keeps its database; dotnet keeps the real one.
 h=$work/home; mkdir -p "$h"; real_home=$HOME; cache=${XDG_CACHE_HOME:-$HOME/.cache}
 (cd "$work/Notes" && HOME=$h DOTNET_CLI_HOME=$real_home NUGET_PACKAGES=$nuget_cache XDG_CACHE_HOME=$cache dotnet publish -t:Install -v quiet -nologo) >"$work/notes.log" 2>&1 || { tail -30 "$work/notes.log"; fail "sqlite window app: publish -t:Install"; }
 files=$(cd "$h/.local/share/omasharp/notes" && echo *)
@@ -430,7 +392,6 @@ reply=$(XDG_DATA_HOME=$d "$work/NotesPanel/plugin/bin/NotesPanel" </dev/null)
 echo "$reply"
 echo "$reply" | grep -q '"notes":\[{"id":1,"text":"milk"}\]' || fail "sqlite panel: note not kept across runs"
 [ -s "$d/notespanel/app.db" ] || fail "sqlite panel: no database in \$XDG_DATA_HOME/notespanel/"
-# Unit tests set up as the reference says: ../Db.cs and the packages in tests/, AppInfo declared there.
 t=$work/NotesPanel/tests
 sed -i 's#<Compile Include="../Backend.cs;#<Compile Include="../Backend.cs;../Db.cs;#' "$t"/*.csproj
 awk -v refs="$work/sqlite-refs.xml" '/^<\/Project>/ { while ((getline l < refs) > 0) print l } 1' "$t"/*.csproj > "$work/csproj" && mv "$work/csproj" "$t"/*.csproj
@@ -519,7 +480,6 @@ grep -q "wrong\|@EXEC@" "$entry" && fail "app.desktop: Install didn't set Icon, 
 if command -v update-desktop-database >/dev/null; then
   grep -q "text/plain=notes.desktop" "$h/.local/share/applications/mimeinfo.cache" || fail "app.desktop: MIME cache not refreshed"
 fi
-# An invalid entry fails Install and leaves the installed one as it was.
 if command -v desktop-file-validate >/dev/null; then
   cp "$entry" "$work/entry.good"
   sed -i 's/^Type=Application$/Type=Nonsense/' "$work/Notes/app.desktop"
@@ -532,7 +492,6 @@ left=$(cd "$h/.local" && find bin share/applications share/icons share/omasharp 
 [ -z "$left" ] || fail "app.desktop: Uninstall left $left"
 
 step "A release: -t:Package, then its install.sh as users run it (piped, the same private HOME)"
-# Restored after the invalid-entry check; the name tests the quoting install.sh gets.
 sed -i 's/^Type=Nonsense$/Type=Application/' "$work/Notes/app.desktop"
 rel=$work/Notes/artifacts
 as_home dotnet publish -t:Package -p:AppRepository=example/notes "-p:AppName=Jo's & Al's Notes" >"$work/package.log" 2>&1 || { tail -30 "$work/package.log"; fail "package: -t:Package"; }
@@ -542,7 +501,6 @@ made=$(cd "$rel" && printf "%s\n" * | LC_ALL=C sort | tr '\n' ' ')
 listed=$(tar -tzf "$rel/notes-linux-x64.tar.gz" | grep -v '/$' | LC_ALL=C sort | tr '\n' ' ')
 [ "$listed" = "notes/app/libnotes.so notes/app/notes notes/app/notes.rcc notes/install.sh notes/notes.desktop notes/notes.svg notes/version " ] || fail "package: the tarball has $listed"
 grep -qxF "id='notes' name='Jo'\\''s & Al'\\''s Notes' repo='example/notes'" "$rel/install.sh" || fail "package: install.sh doesn't have the app's values"
-# Users' way: curl … | sh. The release's files come from file:// here instead of github.com.
 user_install() { curl -fsSL "file://$rel/install.sh" | env HOME="$h" OMASHARP_RELEASE_URL="file://${2:-$rel}" sh ${1:+-s "$1"}; }
 user_install >"$work/user-install.log" 2>&1 || { cat "$work/user-install.log"; fail "release: install.sh"; }
 cat "$work/user-install.log"
@@ -554,29 +512,24 @@ for line in "Exec=\"$exe\" %f" "Exec=\"$exe\" --new" "StartupWMClass=notes" "Ico
   grep -qxF -- "$line" "$entry" || fail "release: no line '$line' in the installed entry"
 done
 case $(shown) in "Label: Notes: run 1, run 2, run 3"*) ;; *) tail -20 "$work/notes-run.log"; fail "release: the installed app didn't run" ;; esac
-# Piped from inside an unpacked (older) release, it still downloads the latest.
 mkdir -p "$work/oldrel"; tar -xzf "$rel/notes-linux-x64.tar.gz" -C "$work/oldrel"; echo 0.0.9 > "$work/oldrel/notes/version"
 (cd "$work/oldrel/notes" && user_install) >"$work/inside.log" 2>&1 || { cat "$work/inside.log"; fail "release: piped install inside an unpacked release"; }
 grep -q "^Installed Jo's & Al's Notes 0.1.0" "$work/inside.log" || { cat "$work/inside.log"; fail "release: piped install took the unpacked release in the current folder"; }
-# A download that doesn't match SHA256SUMS installs nothing.
 cp -r "$rel" "$work/bad"; printf x >> "$work/bad/notes-linux-x64.tar.gz"; cp "$exe" "$work/exe.before"
 user_install "" "$work/bad" >"$work/bad.log" 2>&1 && fail "release: a download that doesn't match SHA256SUMS was installed"
 grep -q "doesn't match the release's SHA256SUMS; nothing was installed" "$work/bad.log" || { cat "$work/bad.log"; fail "release: no message for a bad download"; }
 cmp -s "$exe" "$work/exe.before" || fail "release: a bad download changed the installed app"
-# Libraries older than the build's (a fake ldd says so): nothing is installed.
 mkdir -p "$work/oldlibs"; printf '#!/bin/sh\necho "\t%s: version Qt_6.99 not found (required by %s)"\n' libQt6Core.so.6 notes > "$work/oldlibs/ldd"; chmod +x "$work/oldlibs/ldd"
 (cd "$work" && tar -xzf "$rel/notes-linux-x64.tar.gz")
 env HOME="$work/home2" PATH="$work/oldlibs:$PATH" sh "$work/notes/install.sh" >"$work/old.log" 2>&1 && fail "release: installed on libraries that are too old"
 grep -q "Update the system" "$work/old.log" || { cat "$work/old.log"; fail "release: no message for old libraries"; }
 [ ! -e "$work/home2" ] || fail "release: too-old libraries still wrote to HOME"
-# Again (an update), then uninstall: nothing left. The update leaves apps called notes.new and notes.old alone.
 for other in notes.new notes.old; do mkdir -p "$h/.local/share/omasharp/$other" && touch "$h/.local/share/omasharp/$other/libnotes.so"; done
 user_install >>"$work/user-install.log" 2>&1 || fail "release: install.sh over an installed copy"
 for other in notes.new notes.old; do
   [ -f "$h/.local/share/omasharp/$other/libnotes.so" ] || fail "release: installing notes removed the app $other"
   rm -r "${h:?}/.local/share/omasharp/$other"
 done
-# While another install of the app holds its lock, the next one waits for it.
 ( flock 9; touch "$work/locked"; while [ ! -e "$work/unlock" ]; do sleep 0.1; done ) 9>"$h/.local/share/omasharp/.notes.lock" &
 holder=$!
 while [ ! -e "$work/locked" ]; do sleep 0.05; done
@@ -590,7 +543,6 @@ touch "$work/unlock"; wait "$holder"; wait "$waiter" || { cat "$work/wait.log"; 
 user_install uninstall >>"$work/user-install.log" 2>&1 || fail "release: install.sh uninstall"
 left=$(cd "$h/.local" && find bin share/applications share/icons share/omasharp ! -type d 2>/dev/null || true)
 [ -z "$left" ] || fail "release: uninstall left $left"
-# Panels have no release.
 (cd "$work/NotesPanel" && dotnet publish -t:Package -v quiet -nologo) >"$work/package-panel.log" 2>&1 && fail "package: a panel made a release"
 grep -q "Package makes window app releases" "$work/package-panel.log" || { tail -10 "$work/package-panel.log"; fail "package: no message for a panel"; }
 

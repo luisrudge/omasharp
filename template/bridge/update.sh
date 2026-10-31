@@ -1,16 +1,5 @@
 #!/bin/sh
-# update.sh [APP_DIR]: bring the bridge (bridge/) and the Omasharp skill (.agents/skills/omasharp/)
-# from the installed omarchy-app template into an app (shadcn-style: they're plain files you own).
-# `dotnet build -t:UpdateBridge` runs it.
-#   - files you never changed: replaced with the new version
-#   - files you changed: kept as they are; the new version is saved next to them as
-#     <file>.upstream and the diff is printed. Move your change into the new code (or the new
-#     code into yours), then delete the .upstream file.
-#   - files added upstream: copied in; files removed upstream: deleted if you never changed them
-# "Changed" means its content differs from bridge/MANIFEST, the fingerprints of what this app
-# last received (paths relative to the app folder).
 set -eu
-# Run from a copy: this very file may be replaced below.
 if [ -z "${OMASHARP_UPDATE_COPY:-}" ]; then
   tmp=$(mktemp /tmp/omasharp-update.XXXXXX); cp "$0" "$tmp"
   OMASHARP_UPDATE_COPY=1 exec sh "$tmp" "$@"
@@ -42,7 +31,6 @@ for f in $(find bridge .agents/skills/omasharp -type f ! -name MANIFEST | sort);
     else echo "    (install diffutils to see the diff)"; fi
   fi
 done
-# Files this app received before that aren't upstream any more.
 while read -r h f; do
   [ -e "$new/$f" ] || [ ! -e "$app/$f" ] && continue
   if [ "$(hash "$app/$f")" = "$h" ]; then rm -f "$app/$f"; echo "  removed  $f"; removed=$((removed+1))

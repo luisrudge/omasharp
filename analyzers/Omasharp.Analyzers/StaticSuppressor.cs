@@ -6,8 +6,6 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace Omasharp.Analyzers;
 
-/// <summary>Turns off CA1822 ("can be static") for the backend's public members: QML only sees
-/// instance members, so following that advice would hide them from QML.</summary>
 [DiagnosticAnalyzer(Microsoft.CodeAnalysis.LanguageNames.CSharp)]
 public sealed class StaticSuppressor : DiagnosticSuppressor
 {

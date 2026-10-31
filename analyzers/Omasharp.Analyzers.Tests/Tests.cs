@@ -1,6 +1,3 @@
-// Tests for Omasharp.Analyzers. Each case compiles a small app in memory with a stand-in for the
-// bridge's BackendBase, runs the analyzers and compares the rule ids they report. Plain C#, no test
-// framework: dotnet run --project analyzers/Omasharp.Analyzers.Tests
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -10,7 +7,6 @@ using Omasharp.Analyzers;
 
 var failures = 0;
 
-// The parts of template/bridge/cs/Ui.cs the rules look at.
 const string Bridge = """
     namespace Omasharp
     {
@@ -278,8 +274,6 @@ Expect("one member opts out: [SuppressMessage] and #pragma", """
 Console.WriteLine(failures == 0 ? "all passed" : $"{failures} failed");
 return failures == 0 ? 0 : 1;
 
-/// <summary>Stands in for .NET's CA1822 ("can be static"): reports it on every method and property,
-/// so the test sees which ones the suppressor turns off.</summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 sealed class FakeCA1822 : DiagnosticAnalyzer
 {
