@@ -25,13 +25,6 @@ static partial class Tests
         chainsFromResult();
         replacesDanglingOperator();
         pastesNumbers();
-        evaluatesTokens();
-        opensAtTheDesignSizeForTheTextScale();
-        dropsASavedWindowRectangle();
-        normalizesThePortalTextScale();
-        readsThePortalTextScaleWithoutStalling();
-        formatsNumbers();
-        loadsCurrentOmarchyTheme();
         Extra();
         Console.WriteLine($"{pass} passed, {fail} failed");
         return fail == 0 ? 0 : 1;
@@ -209,40 +202,5 @@ static partial class Tests
         Eq("pastesNumbers", c.Display, "1.5");
         c.PasteText("not a number");
         Eq("pastesNumbers", c.Display, "1.5");
-    }
-
-    static void evaluatesTokens()
-    {
-        var c = new Backend();
-    }
-
-    static void opensAtTheDesignSizeForTheTextScale()
-    {
-        var c = new Backend();
-    }
-
-    static void dropsASavedWindowRectangle()
-    {
-        var c = new Backend();
-    }
-
-    static void normalizesThePortalTextScale()
-    {
-        var c = new Backend();
-    }
-
-    static void readsThePortalTextScaleWithoutStalling()
-    {
-        var c = new Backend();
-    }
-
-    static void formatsNumbers()
-    {
-        var c = new Backend();
-    }
-
-    static void loadsCurrentOmarchyTheme()
-    {
-        var c = new Backend();
     }
 }
